@@ -1,0 +1,2 @@
+# Build dependency (only needed to compile the portable binary)
+pyinstaller>=6.0.0
