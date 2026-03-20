@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, XCircle, Shield} from "lucide-react";
-const API = "";
+const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
 
 interface FormData {
