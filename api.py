@@ -41,6 +41,7 @@ app.add_middleware(
         "https://group-4-terminal-assessment-multi.onrender.com",
         # TA frontend
         "https://securekit.onrender.com",
+        "https://securekit-whk3.onrender.com",
         # Local dev
         "http://localhost:5173",
         "http://localhost:3000",
