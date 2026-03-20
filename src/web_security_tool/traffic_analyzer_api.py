@@ -96,6 +96,37 @@ class _Stats:
         }
 
 
+# traffic_analyzer_api.py
+
+def _matches_filters(pkt: dict, protocol: str, ip: str, src_ip: str, dst_ip: str) -> bool:
+    """Return True if packet passes all active filters."""
+    # Protocol filter
+    if protocol:
+        if pkt.get("protocol", "").upper() != protocol.upper():
+            return False
+
+    # Extract IPs from "src_ip:port" format
+    pkt_src = pkt.get("src", "").rsplit(":", 1)[0]
+    pkt_dst = pkt.get("dst", "").rsplit(":", 1)[0]
+
+    # IP (src OR dst match)
+    if ip:
+        if ip not in pkt_src and ip not in pkt_dst:
+            return False
+
+    # Source IP filter
+    if src_ip:
+        if src_ip not in pkt_src:
+            return False
+
+    # Destination IP filter
+    if dst_ip:
+        if dst_ip not in pkt_dst:
+            return False
+
+    return True
+
+
 def stream_traffic(
     duration: int = 15,
     protocol: str = "",
@@ -104,21 +135,23 @@ def stream_traffic(
     src_ip:   str = "",
     dst_ip:   str = "",
 ):
-    """
-    SSE generator. Yields data immediately on first tick so the browser
-    does not close the connection before any packets arrive.
-    """
     duration = max(5, min(60, duration))
     stats    = _Stats()
     end_at   = time.time() + duration
     tick     = 0
 
     while time.time() < end_at:
-        # First tick: yield immediately, subsequent ticks: 0.6s apart
         if tick > 0:
             time.sleep(0.6)
 
-        batch = _simulate_packets(random.randint(3, 8))
+        raw_batch = _simulate_packets(random.randint(3, 8))
+
+        # Apply filters 
+        batch = [
+            pkt for pkt in raw_batch
+            if _matches_filters(pkt, protocol, ip, src_ip, dst_ip)
+        ]
+
         for pkt in batch:
             stats.add(pkt)
 
@@ -129,8 +162,6 @@ def stream_traffic(
             "duration": duration,
         }
         yield f"data: {json.dumps(payload)}\n\n"
-
-        # SSE keepalive comment — prevents Nginx / proxies closing idle connections
         yield ": keepalive\n\n"
 
         tick += 1
@@ -138,14 +169,23 @@ def stream_traffic(
     yield f"data: {json.dumps({'done': True, 'stats': stats.to_dict()})}\n\n"
 
 
-def snapshot_traffic(count: int = 20) -> dict:
-    count   = max(1, min(50, count))
-    packets = _simulate_packets(count)
+def snapshot_traffic(count: int = 20, protocol: str = "", ip: str = "",
+                     src_ip: str = "", dst_ip: str = "") -> dict:
+    count    = max(1, min(50, count))
+    packets  = []
+    attempts = 0
+
+    while len(packets) < count and attempts < 20:
+        raw = _simulate_packets(max(count, 10))
+        for p in raw:
+            if _matches_filters(p, protocol, ip, src_ip, dst_ip):
+                packets.append(p)
+                if len(packets) >= count:
+                    break
+        attempts += 1
+
+    packets = packets[:count]
     stats   = _Stats()
     for p in packets:
         stats.add(p)
-    return {
-        "packets": packets,
-        "count":   len(packets),
-        "stats":   stats.to_dict(),
-    }
+    return {"packets": packets, "count": len(packets), "stats": stats.to_dict()}
