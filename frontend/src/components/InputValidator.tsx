@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, XCircle, Shield} from "lucide-react";
-const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const API = "";
 
 
 interface FormData {
@@ -58,15 +58,6 @@ export function InputValidator() {
   value: string
 ): Promise<FieldValidation> {
   try {
-    if (!API) {
-      return {
-        isValid: false,
-        sanitized: "",
-        errors: ["VITE_API_BASE_URL is not set"],
-        warnings: [],
-      };
-    }
-
     const r = await fetch(`${API}/api/validate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

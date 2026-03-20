@@ -91,8 +91,7 @@ export function PasswordStrength() {
   setLoading(true);
 
   try {
-    const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
-    if (!API) throw new Error("VITE_API_BASE_URL is not set");
+    const API =  "";
 
     const r = await fetch(`${API}/api/assess`, {
       method: "POST",

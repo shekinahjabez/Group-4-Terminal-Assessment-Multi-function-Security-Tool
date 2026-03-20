@@ -1,70 +1,103 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Activity, Play, Square, RefreshCw, Wifi } from "lucide-react";
+import { Activity, Play, Square, RefreshCw } from "lucide-react";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Packet {
-  id:        number;
-  time:      string;
-  src_ip:    string;
-  dst_ip:    string;
-  src_port:  number | null;
-  dst_port:  number | null;
-  protocol:  string;
-  length:    number;
-  flags?:    string;
-  info?:     string;
+  id:       number;
+  time:     string;
+  src_ip:   string;
+  dst_ip:   string;
+  src_port: number | null;
+  dst_port: number | null;
+  protocol: string;
+  length:   number;
+  flags:    string;
+  suspicious: boolean;
 }
 
 interface TrafficStats {
-  total:   number;
-  tcp:     number;
-  udp:     number;
-  icmp:    number;
-  other:   number;
+  total: number;
+  tcp:   number;
+  udp:   number;
+  icmp:  number;
+  other: number;
 }
 
-const PROTO_STYLE: Record<string, string> = {
-  TCP:  "bg-sky-100 text-sky-700 border-sky-200",
-  UDP:  "bg-emerald-100 text-emerald-700 border-emerald-200",
-  ICMP: "bg-violet-100 text-violet-700 border-violet-200",
-  HTTP: "bg-orange-100 text-orange-700 border-orange-200",
-  DNS:  "bg-amber-100 text-amber-700 border-amber-200",
+const PROTO_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  TCP:  { bg: "#e0f2fe", text: "#0369a1", border: "#bae6fd" },
+  UDP:  { bg: "#d1fae5", text: "#065f46", border: "#a7f3d0" },
+  ICMP: { bg: "#ede9fe", text: "#5b21b6", border: "#ddd6fe" },
+  HTTP: { bg: "#ffedd5", text: "#9a3412", border: "#fed7aa" },
+  DNS:  { bg: "#fef9c3", text: "#713f12", border: "#fde68a" },
 };
-const protoStyle = (p: string) =>
-  PROTO_STYLE[p.toUpperCase()] ?? "bg-slate-100 text-slate-600 border-slate-200";
+const protoColor = (p: string) =>
+  PROTO_COLORS[(p || "").toUpperCase()] ?? { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
+
+// ── Parse a raw backend packet into our Packet shape ─────────────────────────
+// Backend shape: { src, dst, protocol, flag, bytes, suspicious, ts, summary }
+// src/dst are "IP:PORT" strings
+function parseRawPacket(raw: Record<string, unknown>, id: number): Packet {
+  const splitAddr = (addr: string) => {
+    if (!addr) return { ip: "—", port: null };
+    const lastColon = addr.lastIndexOf(":");
+    if (lastColon === -1) return { ip: addr, port: null };
+    const ip   = addr.slice(0, lastColon);
+    const port = parseInt(addr.slice(lastColon + 1), 10);
+    return { ip, port: isNaN(port) ? null : port };
+  };
+
+  const src = splitAddr(String(raw.src || raw.src_ip || ""));
+  const dst = splitAddr(String(raw.dst || raw.dst_ip || ""));
+
+  return {
+    id,
+    time:       String(raw.ts || raw.time || raw.timestamp || ""),
+    src_ip:     src.ip,
+    dst_ip:     dst.ip,
+    src_port:   src.port,
+    dst_port:   dst.port,
+    protocol:   String(raw.protocol || raw.proto || "UNKNOWN"),
+    length:     Number(raw.bytes || raw.length || raw.size || 0),
+    flags:      String(raw.flag || raw.flags || raw.summary || "—"),
+    suspicious: Boolean(raw.suspicious),
+  };
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function TrafficAnalyzer() {
   const [packets,  setPackets]  = useState<Packet[]>([]);
-  const [stats,    setStats]    = useState<TrafficStats>({ total:0,tcp:0,udp:0,icmp:0,other:0 });
+  const [stats,    setStats]    = useState<TrafficStats>({ total:0, tcp:0, udp:0, icmp:0, other:0 });
   const [running,  setRunning]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
   const [duration, setDuration] = useState(15);
 
-  // Filters
   const [filterProto, setFilterProto] = useState("");
   const [filterIP,    setFilterIP]    = useState("");
   const [filterSrc,   setFilterSrc]   = useState("");
   const [filterDst,   setFilterDst]   = useState("");
 
-  const esRef      = useRef<EventSource | null>(null);
-  const packetId   = useRef(0);
-  const tbodyRef   = useRef<HTMLTableSectionElement>(null);
+  const esRef    = useRef<EventSource | null>(null);
+  const packetId = useRef(0);
+  const gotAny   = useRef(false);
 
-  const addPacket = useCallback((pkt: Omit<Packet,"id">) => {
-    const withId: Packet = { ...pkt, id: ++packetId.current };
-    setPackets(prev => [withId, ...prev].slice(0, 200));
+  const addPackets = useCallback((raws: Record<string, unknown>[]) => {
+    if (!raws.length) return;
+    gotAny.current = true;
+    const newPkts = raws.map(r => parseRawPacket(r, ++packetId.current));
+    setPackets(prev => [...newPkts, ...prev].slice(0, 300));
     setStats(prev => {
-      const proto = (pkt.protocol || "").toUpperCase();
-      return {
-        total: prev.total + 1,
-        tcp:   prev.tcp   + (proto === "TCP"  ? 1 : 0),
-        udp:   prev.udp   + (proto === "UDP"  ? 1 : 0),
-        icmp:  prev.icmp  + (proto === "ICMP" ? 1 : 0),
-        other: prev.other + (!["TCP","UDP","ICMP"].includes(proto) ? 1 : 0),
-      };
+      let { total, tcp, udp, icmp, other } = prev;
+      for (const p of newPkts) {
+        total++;
+        const proto = p.protocol.toUpperCase();
+        if      (proto === "TCP")  tcp++;
+        else if (proto === "UDP")  udp++;
+        else if (proto === "ICMP") icmp++;
+        else                       other++;
+      }
+      return { total, tcp, udp, icmp, other };
     });
   }, []);
 
@@ -78,34 +111,44 @@ export function TrafficAnalyzer() {
     if (!API) { setError("VITE_API_BASE_URL is not set."); return; }
     stopStream();
     setError(null);
+    gotAny.current = false;
     setRunning(true);
 
-    const params = new URLSearchParams({
-      duration: String(duration),
-      ...(filterProto && { protocol: filterProto }),
-      ...(filterIP    && { ip:       filterIP    }),
-      ...(filterSrc   && { src_ip:   filterSrc   }),
-      ...(filterDst   && { dst_ip:   filterDst   }),
-    });
+    const params = new URLSearchParams({ duration: String(duration) });
+    if (filterProto) params.set("protocol", filterProto);
+    if (filterIP)    params.set("ip",       filterIP);
+    if (filterSrc)   params.set("src_ip",   filterSrc);
+    if (filterDst)   params.set("dst_ip",   filterDst);
 
-    const url = `${API}/api/traffic/stream?${params}`;
-    const es  = new EventSource(url);
+    const es = new EventSource(`${API}/api/traffic/stream?${params}`);
     esRef.current = es;
 
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.done) { stopStream(); return; }
+
+        if (data.done)  { stopStream(); return; }
         if (data.error) { setError(String(data.error)); stopStream(); return; }
-        addPacket(data as Omit<Packet,"id">);
-      } catch { /* skip malformed */ }
+
+        // Backend sends batches: { packets: [...], stats: {...} }
+        if (Array.isArray(data.packets)) {
+          addPackets(data.packets);
+        } else if (data.src || data.src_ip) {
+          // Single-packet format fallback
+          addPackets([data]);
+        }
+      } catch (err) {
+        console.error("Malformed SSE packet:", err, e.data);
+      }
     };
 
     es.onerror = () => {
-      setError("Stream connection lost. The backend may have ended the capture.");
       stopStream();
+      if (!gotAny.current) {
+        setError("Stream ended with no packets. Check that the backend is running and has network access.");
+      }
     };
-  }, [API, duration, filterProto, filterIP, filterSrc, filterDst, addPacket, stopStream]);
+  }, [API, duration, filterProto, filterIP, filterSrc, filterDst, addPackets, stopStream]);
 
   const takeSnapshot = async () => {
     if (!API) { setError("VITE_API_BASE_URL is not set."); return; }
@@ -118,10 +161,12 @@ export function TrafficAnalyzer() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.detail ?? `Error ${r.status}`);
-      const list: Omit<Packet,"id">[] = Array.isArray(data) ? data : (data.packets ?? []);
-      list.forEach(addPacket);
-    } catch (err: any) {
-      setError(err?.message ?? "Snapshot failed.");
+      const list: Record<string, unknown>[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data.packets) ? data.packets : [];
+      addPackets(list);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Snapshot failed.");
     }
   };
 
@@ -130,102 +175,105 @@ export function TrafficAnalyzer() {
     setPackets([]);
     setStats({ total:0, tcp:0, udp:0, icmp:0, other:0 });
     packetId.current = 0;
+    gotAny.current   = false;
     setError(null);
   };
 
-  // Auto-scroll to top (newest packets are prepended)
-  useEffect(() => {
-    tbodyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [packets.length]);
-
-  // Cleanup on unmount
   useEffect(() => () => { esRef.current?.close(); }, []);
 
   return (
-    <div className="space-y-4 h-full overflow-y-auto pr-1">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-800 mb-0.5">Traffic Analyzer</h2>
-        <p className="text-slate-600 text-xs">Live packet capture via SSE stream (Python backend)</p>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", margin: 0 }}>Traffic Analyzer</h2>
+        <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>Live packet capture via SSE stream (Python backend)</p>
       </div>
 
-      {/* Controls */}
-      <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-4 space-y-3">
+      {/* Controls card */}
+      <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
 
-        {/* Filters row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-600 mb-1">Protocol</label>
-            <select value={filterProto} onChange={e => setFilterProto(e.target.value)}
-              className="w-full px-2 py-1.5 bg-white border-2 border-slate-200 rounded-lg text-slate-700 text-xs focus:outline-none focus:border-rose-400 transition-all"
-            >
-              <option value="">All</option>
-              {["tcp","udp","icmp"].map(p => (
-                <option key={p} value={p}>{p.toUpperCase()}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-600 mb-1">IP (src or dst)</label>
-            <input type="text" value={filterIP} onChange={e => setFilterIP(e.target.value)}
-              placeholder="192.168.1.x"
-              className="w-full px-2 py-1.5 bg-white border-2 border-slate-200 rounded-lg text-slate-700 text-xs focus:outline-none focus:border-rose-400 transition-all placeholder-slate-300"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-600 mb-1">Source IP</label>
-            <input type="text" value={filterSrc} onChange={e => setFilterSrc(e.target.value)}
-              placeholder="src only"
-              className="w-full px-2 py-1.5 bg-white border-2 border-slate-200 rounded-lg text-slate-700 text-xs focus:outline-none focus:border-rose-400 transition-all placeholder-slate-300"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-600 mb-1">Dest IP</label>
-            <input type="text" value={filterDst} onChange={e => setFilterDst(e.target.value)}
-              placeholder="dst only"
-              className="w-full px-2 py-1.5 bg-white border-2 border-slate-200 rounded-lg text-slate-700 text-xs focus:outline-none focus:border-rose-400 transition-all placeholder-slate-300"
-            />
-          </div>
+        {/* Filter row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          {[
+            { label: "Protocol", el: (
+              <select value={filterProto} onChange={e => setFilterProto(e.target.value)}
+                style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none" }}
+              >
+                <option value="">All</option>
+                {["tcp","udp","icmp"].map(p => <option key={p} value={p}>{p.toUpperCase()}</option>)}
+              </select>
+            )},
+            { label: "IP (src or dst)", el: (
+              <input type="text" value={filterIP} onChange={e => setFilterIP(e.target.value)}
+                placeholder="192.168.1.x"
+                style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+              />
+            )},
+            { label: "Source IP", el: (
+              <input type="text" value={filterSrc} onChange={e => setFilterSrc(e.target.value)}
+                placeholder="src only"
+                style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+              />
+            )},
+            { label: "Dest IP", el: (
+              <input type="text" value={filterDst} onChange={e => setFilterDst(e.target.value)}
+                placeholder="dst only"
+                style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+              />
+            )},
+          ].map(({ label, el }) => (
+            <div key={label}>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</label>
+              {el}
+            </div>
+          ))}
         </div>
 
         {/* Duration slider */}
         <div>
-          <div className="flex justify-between mb-1">
-            <label className="text-[10px] font-semibold text-slate-600">Capture duration</label>
-            <span className="text-[10px] font-bold text-rose-600">{duration}s</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <label style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Capture duration</label>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#e11d48" }}>{duration}s</span>
           </div>
           <input type="range" min={5} max={60} step={5} value={duration}
             onChange={e => setDuration(Number(e.target.value))}
             disabled={running}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-rose-500 disabled:opacity-50"
+            style={{ width: "100%", accentColor: "#e11d48", cursor: running ? "not-allowed" : "pointer" }}
           />
-          <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-            <span>5s</span><span>60s</span>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>5s</span>
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>60s</span>
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 flex-wrap">
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8 }}>
           {!running ? (
             <button onClick={startStream}
-              className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-rose-600/20"
+              style={{ flex: 1, backgroundColor: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#be123c")}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#e11d48")}
             >
-              <Play className="w-3.5 h-3.5" /> Start Live Stream
+              <Play style={{ width: 14, height: 14 }} />
+              Start Live Stream
             </button>
           ) : (
             <button onClick={stopStream}
-              className="flex-1 bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2 px-4 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5"
+              style={{ flex: 1, backgroundColor: "#334155", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
             >
-              <Square className="w-3.5 h-3.5" /> Stop
+              <Square style={{ width: 14, height: 14 }} />
+              Stop
             </button>
           )}
           <button onClick={takeSnapshot} disabled={running}
-            className="bg-white border-2 border-rose-300 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed text-rose-700 font-semibold py-2 px-4 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5"
+            style={{ backgroundColor: "#fff", color: "#e11d48", border: "2px solid #fecdd3", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: running ? "not-allowed" : "pointer", opacity: running ? 0.4 : 1, display: "flex", alignItems: "center", gap: 6 }}
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Snapshot
+            <RefreshCw style={{ width: 13, height: 13 }} />
+            Snapshot
           </button>
           <button onClick={clearAll}
-            className="bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold py-2 px-4 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5"
+            style={{ backgroundColor: "#fff", color: "#64748b", border: "2px solid #e2e8f0", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
           >
             Clear
           </button>
@@ -234,26 +282,26 @@ export function TrafficAnalyzer() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 text-red-700 text-xs flex items-start gap-2">
-          <span className="font-bold flex-shrink-0">Error:</span>
+        <div style={{ backgroundColor: "#fef2f2", border: "2px solid #fecaca", borderRadius: 10, padding: "10px 14px", color: "#dc2626", fontSize: 12, display: "flex", gap: 8 }}>
+          <span style={{ fontWeight: 700 }}>Error:</span>
           <span>{error}</span>
         </div>
       )}
 
-      {/* Stats pills */}
+      {/* Stats */}
       {stats.total > 0 && (
-        <div className="flex gap-2 flex-wrap">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {[
-            { label: "Total",  val: stats.total, style: "bg-slate-100 text-slate-700 border-slate-200" },
-            { label: "TCP",    val: stats.tcp,   style: "bg-sky-100 text-sky-700 border-sky-200" },
-            { label: "UDP",    val: stats.udp,   style: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-            { label: "ICMP",   val: stats.icmp,  style: "bg-violet-100 text-violet-700 border-violet-200" },
-            { label: "Other",  val: stats.other, style: "bg-amber-100 text-amber-700 border-amber-200" },
+            { label: "Total", val: stats.total,  bg: "#f1f5f9", text: "#334155", border: "#e2e8f0" },
+            { label: "TCP",   val: stats.tcp,     bg: "#e0f2fe", text: "#0369a1", border: "#bae6fd" },
+            { label: "UDP",   val: stats.udp,     bg: "#d1fae5", text: "#065f46", border: "#a7f3d0" },
+            { label: "ICMP",  val: stats.icmp,    bg: "#ede9fe", text: "#5b21b6", border: "#ddd6fe" },
+            { label: "Other", val: stats.other,   bg: "#fef9c3", text: "#713f12", border: "#fde68a" },
           ].map(s => (
-            <div key={s.label} className={`px-3 py-1 rounded-full border text-[10px] font-bold ${s.style}`}>
+            <div key={s.label} style={{ backgroundColor: s.bg, border: `1px solid ${s.border}`, borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: s.text }}>
               {s.label}: {s.val}
               {stats.total > 0 && s.label !== "Total" && (
-                <span className="ml-1 opacity-60">({Math.round(s.val / stats.total * 100)}%)</span>
+                <span style={{ opacity: 0.6, marginLeft: 4 }}>({Math.round(s.val / stats.total * 100)}%)</span>
               )}
             </div>
           ))}
@@ -262,53 +310,56 @@ export function TrafficAnalyzer() {
 
       {/* Live indicator */}
       {running && (
-        <div className="flex items-center gap-2 text-xs text-rose-600 font-semibold">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse inline-block" />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#e11d48", fontWeight: 600 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#e11d48", display: "inline-block", animation: "pulse 1s infinite" }} />
           Live capture running — {packets.length} packets captured
         </div>
       )}
 
       {/* Packet table */}
       {packets.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border-2 border-slate-200">
-          <table className="w-full text-[10px] font-mono border-collapse">
+        <div style={{ overflowX: "auto", borderRadius: 10, border: "2px solid #e2e8f0" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
             <thead>
-              <tr className="bg-slate-100 text-slate-500 uppercase tracking-wide">
-                {["#","Time","Src IP","Dst IP","Proto","Src Port","Dst Port","Size","Flags/Info"].map(h => (
-                  <th key={h} className="px-2 py-2 text-left font-semibold border-b-2 border-slate-200 whitespace-nowrap">{h}</th>
+              <tr style={{ backgroundColor: "#f1f5f9" }}>
+                {["#","Time","Src IP","Dst IP","Proto","Src Port","Dst Port","Size","Flags"].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody ref={tbodyRef}>
-              {packets.map((p, idx) => (
-                <tr key={p.id}
-                  className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${idx === 0 && running ? "bg-rose-50" : ""}`}
-                >
-                  <td className="px-2 py-1.5 text-slate-400">{p.id}</td>
-                  <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{p.time}</td>
-                  <td className="px-2 py-1.5 text-slate-700 whitespace-nowrap">{p.src_ip || "—"}</td>
-                  <td className="px-2 py-1.5 text-slate-700 whitespace-nowrap">{p.dst_ip || "—"}</td>
-                  <td className="px-2 py-1.5">
-                    <span className={`inline-block px-1.5 py-0.5 rounded border text-[9px] font-bold ${protoStyle(p.protocol)}`}>
-                      {p.protocol}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1.5 text-slate-500">{p.src_port ?? "—"}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{p.dst_port ?? "—"}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{p.length}B</td>
-                  <td className="px-2 py-1.5 text-slate-400 max-w-[140px] truncate">{p.flags || p.info || "—"}</td>
-                </tr>
-              ))}
+            <tbody>
+              {packets.map((p, idx) => {
+                const pc = protoColor(p.protocol);
+                return (
+                  <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9", backgroundColor: p.suspicious ? "#fff7ed" : idx === 0 && running ? "#fff1f2" : "#fff" }}>
+                    <td style={{ padding: "7px 10px", color: "#94a3b8" }}>{p.id}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{p.time ? p.time.slice(11, 23) : "—"}</td>
+                    <td style={{ padding: "7px 10px", color: "#334155", whiteSpace: "nowrap" }}>{p.src_ip}</td>
+                    <td style={{ padding: "7px 10px", color: "#334155", whiteSpace: "nowrap" }}>{p.dst_ip}</td>
+                    <td style={{ padding: "7px 10px" }}>
+                      <span style={{ backgroundColor: pc.bg, color: pc.text, border: `1px solid ${pc.border}`, borderRadius: 4, padding: "2px 6px", fontSize: 10, fontWeight: 700 }}>
+                        {p.protocol}
+                      </span>
+                    </td>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{p.src_port ?? "—"}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{p.dst_port ?? "—"}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{p.length}B</td>
+                    <td style={{ padding: "7px 10px", color: p.suspicious ? "#ea580c" : "#94a3b8", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.suspicious ? "⚠ " : ""}{p.flags}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
         !running && !error && (
-          <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-6 border-2 border-rose-200 text-center">
-            <Activity className="w-8 h-8 text-rose-400 mx-auto mb-2" />
-            <p className="text-rose-800 font-semibold text-sm">No traffic captured yet</p>
-            <p className="text-rose-500 text-xs mt-1">
-              Press <strong>Start Live Stream</strong> to begin capture, or <strong>Snapshot</strong> for a quick 20-packet sample.
+          <div style={{ backgroundColor: "#fff1f2", border: "2px solid #fecdd3", borderRadius: 12, padding: 24, textAlign: "center" }}>
+            <Activity style={{ width: 32, height: 32, color: "#fb7185", margin: "0 auto 8px" }} />
+            <p style={{ fontSize: 14, fontWeight: 600, color: "#9f1239", margin: "0 0 4px" }}>No traffic captured yet</p>
+            <p style={{ fontSize: 12, color: "#fb7185", margin: 0 }}>
+              Press <strong>Start Live Stream</strong> to begin, or <strong>Snapshot</strong> for a quick 20-packet sample.
             </p>
           </div>
         )
