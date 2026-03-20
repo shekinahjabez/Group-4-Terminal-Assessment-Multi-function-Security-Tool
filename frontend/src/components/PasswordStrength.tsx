@@ -91,7 +91,7 @@ export function PasswordStrength() {
   setLoading(true);
 
   try {
-    const API =  "";
+    const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
     const r = await fetch(`${API}/api/assess`, {
       method: "POST",
