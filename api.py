@@ -37,10 +37,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        # MS1 production frontend
-        "https://milestone-1-web-security-tool-group-4.onrender.com",
-        # TA frontend (update this once deployed)
-        "https://securekit-ta.onrender.com",
+        # Production frontend
+        "https://group-4-terminal-assessment-multi.onrender.com",
+        # TA frontend
+        "https://securekit.onrender.com",
         # Local dev
         "http://localhost:5173",
         "http://localhost:3000",

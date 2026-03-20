@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Radar, Play, X, AlertTriangle, CheckCircle2, XCircle, Info } from "lucide-react";
+import { Radar, Download } from "lucide-react";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface PortResult {
   port: number;
   state: "open" | "closed" | "filtered";
@@ -23,246 +22,238 @@ interface ScanResult {
 
 type ScanMode = "common" | "range" | "custom";
 
-const RISK_META = {
-  high:   { color: "text-red-700",    bg: "bg-red-50 border-red-200",    badge: "bg-red-100 text-red-700",    icon: <XCircle      className="w-3 h-3" /> },
-  medium: { color: "text-amber-700",  bg: "bg-amber-50 border-amber-200",badge: "bg-amber-100 text-amber-700",icon: <AlertTriangle className="w-3 h-3" /> },
-  low:    { color: "text-emerald-700",bg: "bg-emerald-50 border-emerald-200",badge: "bg-emerald-100 text-emerald-700",icon: <CheckCircle2 className="w-3 h-3" /> },
-  info:   { color: "text-blue-700",   bg: "bg-blue-50 border-blue-200",  badge: "bg-blue-100 text-blue-700",  icon: <Info          className="w-3 h-3" /> },
+const RISK_STYLE: Record<string, { bg: string; border: string; badge_bg: string; badge_text: string }> = {
+  high:   { bg: "#fef2f2", border: "#fecaca", badge_bg: "#fee2e2", badge_text: "#b91c1c" },
+  medium: { bg: "#fffbeb", border: "#fde68a", badge_bg: "#fef3c7", badge_text: "#92400e" },
+  low:    { bg: "#f0fdf4", border: "#bbf7d0", badge_bg: "#dcfce7", badge_text: "#166534" },
+  info:   { bg: "#eff6ff", border: "#bfdbfe", badge_bg: "#dbeafe", badge_text: "#1e40af" },
 };
+const RISK_ICONS: Record<string, string> = { high: "✕", medium: "⚠", low: "✓", info: "i" };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Export helpers ─────────────────────────────────────────────────────────────
+function exportCSV(result: ScanResult) {
+  const rows = [
+    ["Port", "State", "Service", "Risk"],
+    ...result.ports.map(p => [p.port, p.state, p.service, p.risk]),
+  ];
+  const csv = [
+    `# SecureKit Port Scan — ${result.host} (${result.ip})`,
+    `# Mode: ${result.mode} | Scanned: ${result.total_scanned} | Open: ${result.open_count} | Time: ${result.scan_time}s`,
+    `# Generated: ${new Date().toISOString()}`,
+    "",
+    ...rows.map(r => r.join(",")),
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `portscan_${result.host.replace(/\./g, "_")}_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportJSON(result: ScanResult) {
+  const payload = {
+    meta: {
+      host: result.host, ip: result.ip, mode: result.mode,
+      total_scanned: result.total_scanned, open_count: result.open_count,
+      scan_time: result.scan_time, generated: new Date().toISOString(),
+      tool: "SecureKit — Network Port Scanner",
+    },
+    ports: result.ports,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `portscan_${result.host.replace(/\./g, "_")}_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function PortScanner() {
-  const [host, setHost]           = useState("");
-  const [mode, setMode]           = useState<ScanMode>("common");
-  const [timeout, setTimeout_]    = useState(0.8);
-  const [startPort, setStartPort] = useState(1);
-  const [endPort, setEndPort]     = useState(1024);
+  const [host,        setHost]        = useState("");
+  const [mode,        setMode]        = useState<ScanMode>("common");
+  const [timeout_,    setTimeout_]    = useState(0.8);
+  const [startPort,   setStartPort]   = useState(1);
+  const [endPort,     setEndPort]     = useState(1024);
   const [customPorts, setCustomPorts] = useState("");
-
-  const [result,  setResult]  = useState<ScanResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
-
-  const [filterRisk, setFilterRisk] = useState<string>("all");
+  const [result,      setResult]      = useState<ScanResult | null>(null);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [filterRisk,  setFilterRisk]  = useState("all");
 
   const handleScan = async () => {
     if (!host.trim()) { setError("Please enter a target host or IP."); return; }
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
+    setLoading(true); setError(null); setResult(null);
     try {
       if (!API) throw new Error("VITE_API_BASE_URL is not set.");
-
-      const body: Record<string, unknown> = {
-        host:    host.trim(),
-        mode,
-        timeout,
-        start:   startPort,
-        end:     endPort,
-        ports:   customPorts.trim(),
-      };
-
       const r = await fetch(`${API}/api/scan`, {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(body),
+        body: JSON.stringify({ host: host.trim(), mode, timeout: timeout_, start: startPort, end: endPort, ports: customPorts.trim() }),
       });
-
-      const ct = r.headers.get("content-type") || "";
-      if (!ct.includes("application/json")) {
-        const text = await r.text();
-        throw new Error(`Server returned ${r.status} (non-JSON): ${text.slice(0, 120)}`);
-      }
-
       const data = await r.json();
       if (!r.ok) throw new Error(data?.detail ?? `Scan failed (${r.status})`);
-
       setResult(data as ScanResult);
-    } catch (err: any) {
-      setError(err?.message ?? "Unknown error during scan.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unknown error during scan.");
     } finally {
       setLoading(false);
     }
   };
 
   const displayed = result
-    ? result.ports.filter(p =>
-        filterRisk === "all" ? true : p.risk === filterRisk
-      )
+    ? result.ports.filter(p => filterRisk === "all" || p.risk === filterRisk)
     : [];
 
   return (
-    <div className="space-y-4 h-full overflow-y-auto pr-1">
-      {/* Header */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <h2 className="text-xl font-bold text-slate-800 mb-0.5">Network Port Scanner</h2>
-        <p className="text-slate-600 text-xs">Scan TCP ports and identify running services (Python backend)</p>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", margin: 0 }}>Network Port Scanner</h2>
+        <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>Scan TCP ports and identify running services (Python backend)</p>
       </div>
 
-      {/* Config Card */}
-      <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-4 space-y-3">
+      {/* Config card */}
+      <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Host */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Target Host / IP</label>
-          <input
-            type="text"
-            value={host}
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Target Host / IP</label>
+          <input type="text" value={host}
             onChange={e => { setHost(e.target.value); setError(null); }}
             onKeyDown={e => e.key === "Enter" && handleScan()}
             placeholder="e.g. 192.168.1.1 or scanme.nmap.org"
-            className="w-full px-3 py-2 bg-white border-2 border-slate-200 rounded-lg text-slate-800 text-xs placeholder-slate-400 focus:outline-none focus:border-violet-500 focus:bg-white transition-all"
+            style={{ width: "100%", padding: "9px 12px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+            onFocus={e => (e.currentTarget.style.borderColor = "#7c3aed")}
+            onBlur={e  => (e.currentTarget.style.borderColor = "#e2e8f0")}
           />
         </div>
 
-        {/* Mode */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Scan Mode</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(["common","range","custom"] as ScanMode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`py-1.5 rounded-lg text-xs font-semibold border-2 transition-all capitalize ${
-                  mode === m
-                    ? "bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-600/20"
-                    : "bg-white border-slate-200 text-slate-600 hover:border-violet-300"
-                }`}
-              >
-                {m}
-              </button>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Scan Mode</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+            {(["common", "range", "custom"] as ScanMode[]).map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                style={{ padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: mode === m ? "2px solid #7c3aed" : "2px solid #e2e8f0", backgroundColor: mode === m ? "#7c3aed" : "#fff", color: mode === m ? "#fff" : "#64748b", textTransform: "capitalize" }}
+              >{m}</button>
             ))}
           </div>
         </div>
 
-        {/* Range inputs */}
         {mode === "range" && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Start Port</label>
-              <input type="number" min={1} max={65535} value={startPort}
-                onChange={e => setStartPort(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-white border-2 border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-violet-500 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">End Port</label>
-              <input type="number" min={1} max={65535} value={endPort}
-                onChange={e => setEndPort(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-white border-2 border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-violet-500 transition-all"
-              />
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {[{ label: "Start Port", val: startPort, set: setStartPort }, { label: "End Port", val: endPort, set: setEndPort }].map(({ label, val, set }) => (
+              <div key={label}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 4 }}>{label}</label>
+                <input type="number" min={1} max={65535} value={val} onChange={e => set(Number(e.target.value))}
+                  style={{ width: "100%", padding: "8px 10px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Custom ports */}
         {mode === "custom" && (
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Port List <span className="text-slate-400 font-normal">(e.g. 80,443,8000-8080)</span>
-            </label>
-            <input type="text" value={customPorts}
-              onChange={e => setCustomPorts(e.target.value)}
-              placeholder="80,443,22,8000-8080"
-              className="w-full px-3 py-2 bg-white border-2 border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-violet-500 transition-all"
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Port List <span style={{ fontWeight: 400, color: "#94a3b8" }}>(e.g. 80,443,8000-8080)</span></label>
+            <input type="text" value={customPorts} onChange={e => setCustomPorts(e.target.value)} placeholder="80,443,22,8000-8080"
+              style={{ width: "100%", padding: "8px 10px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
             />
           </div>
         )}
 
-        {/* Timeout */}
         <div>
-          <div className="flex justify-between mb-1">
-            <label className="text-xs font-semibold text-slate-700">Timeout per port</label>
-            <span className="text-xs font-bold text-violet-600">{timeout.toFixed(1)}s</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>Timeout per port</label>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>{timeout_.toFixed(1)}s</span>
           </div>
-          <input type="range" min={0.2} max={5} step={0.1} value={timeout}
-            onChange={e => setTimeout_(Number(e.target.value))}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-600"
+          <input type="range" min={0.2} max={5} step={0.1} value={timeout_} onChange={e => setTimeout_(Number(e.target.value))}
+            style={{ width: "100%", accentColor: "#7c3aed", cursor: "pointer" }}
           />
-          <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-            <span>0.2s (fast)</span><span>5.0s (thorough)</span>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>0.2s (fast)</span>
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>5.0s (thorough)</span>
           </div>
         </div>
 
-        {/* Scan button */}
-        <button
-          onClick={handleScan}
-          disabled={loading}
-          className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-violet-600/20 flex items-center justify-center gap-2 text-sm"
+        <button onClick={handleScan} disabled={loading}
+          style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", cursor: loading ? "not-allowed" : "pointer", backgroundColor: loading ? "#cbd5e1" : "#7c3aed", color: "#fff", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = "#6d28d9"; }}
+          onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = loading ? "#cbd5e1" : "#7c3aed"; }}
         >
           {loading
-            ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Scanning...</>
-            : <><Radar className="w-4 h-4" /> Start Scan</>
-          }
+            ? <><span style={{ width: 16, height: 16, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />Scanning...</>
+            : <><Radar style={{ width: 16, height: 16 }} />Start Scan</>}
         </button>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="flex items-start gap-2 bg-red-50 border-2 border-red-200 rounded-xl p-3 text-red-700 text-xs">
-          <X className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
+        <div style={{ backgroundColor: "#fef2f2", border: "2px solid #fecaca", borderRadius: 10, padding: "10px 14px", color: "#dc2626", fontSize: 12, display: "flex", gap: 8 }}>
+          <span style={{ fontWeight: 700 }}>Error:</span><span>{error}</span>
         </div>
       )}
 
-      {/* Results */}
       {result && (
-        <div className="space-y-3">
-          {/* Summary bar */}
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: "Host",    value: result.host },
-              { label: "Scanned", value: result.total_scanned },
-              { label: "Open",    value: result.open_count },
-              { label: "Time",    value: `${result.scan_time.toFixed(1)}s` },
-            ].map(s => (
-              <div key={s.label} className="bg-white border-2 border-slate-200 rounded-xl p-3 text-center">
-                <p className="text-[10px] text-slate-400 font-mono uppercase tracking-wide">{s.label}</p>
-                <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">{s.value}</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* Summary */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+            {[{ label: "Host", value: result.host }, { label: "Scanned", value: String(result.total_scanned) }, { label: "Open", value: String(result.open_count) }, { label: "Time", value: `${result.scan_time.toFixed(1)}s` }].map(s => (
+              <div key={s.label} style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+                <p style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.value}</p>
               </div>
             ))}
           </div>
 
-          {/* Risk filter */}
-          <div className="flex gap-2 flex-wrap">
-            {["all","high","medium","low","info"].map(r => (
-              <button key={r} onClick={() => setFilterRisk(r)}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold border-2 capitalize transition-all ${
-                  filterRisk === r
-                    ? "bg-violet-600 border-violet-600 text-white"
-                    : "bg-white border-slate-200 text-slate-500 hover:border-violet-300"
-                }`}
+          {/* Filter + Export row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {["all", "high", "medium", "low", "info"].map(r => (
+                <button key={r} onClick={() => setFilterRisk(r)}
+                  style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer", border: filterRisk === r ? "2px solid #7c3aed" : "2px solid #e2e8f0", backgroundColor: filterRisk === r ? "#7c3aed" : "#fff", color: filterRisk === r ? "#fff" : "#64748b", textTransform: "capitalize" }}
+                >{r === "all" ? `All (${result.ports.length})` : r}</button>
+              ))}
+            </div>
+
+            {/* Export buttons */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => exportCSV(result)}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "2px solid #e2e8f0", backgroundColor: "#fff", color: "#475569", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "#7c3aed")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
               >
-                {r === "all" ? `All (${result.ports.length})` : r}
+                <Download style={{ width: 13, height: 13 }} />Export CSV
               </button>
-            ))}
+              <button onClick={() => exportJSON(result)}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "2px solid #e2e8f0", backgroundColor: "#fff", color: "#475569", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "#7c3aed")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
+              >
+                <Download style={{ width: 13, height: 13 }} />Export JSON
+              </button>
+            </div>
           </div>
 
           {/* Port list */}
           {displayed.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs">
-              No ports match this filter.
-            </div>
+            <div style={{ textAlign: "center", padding: "24px 0", color: "#94a3b8", fontSize: 13 }}>No ports match this filter.</div>
           ) : (
-            <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
               {displayed.map(p => {
-                const meta = RISK_META[p.risk] ?? RISK_META.info;
+                const rs = RISK_STYLE[p.risk] ?? RISK_STYLE.info;
                 return (
-                  <div key={p.port}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg border-2 ${meta.bg}`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-mono text-xs font-bold text-slate-700 w-12">{p.port}</span>
-                      <span className="text-xs text-slate-600">{p.service || "unknown"}</span>
+                  <div key={p.port} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, border: `2px solid ${rs.border}`, backgroundColor: rs.bg }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#334155", minWidth: 44 }}>{p.port}</span>
+                      <span style={{ fontSize: 12, color: "#475569" }}>{p.service || "unknown"}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.badge}`}>
-                        {meta.icon}{p.risk}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ backgroundColor: rs.badge_bg, color: rs.badge_text, borderRadius: 999, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>
+                        {RISK_ICONS[p.risk]} {p.risk}
                       </span>
-                      <span className={`text-[10px] font-semibold capitalize ${
-                        p.state === "open" ? "text-emerald-600" : "text-slate-400"
-                      }`}>{p.state}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: p.state === "open" ? "#16a34a" : "#94a3b8", textTransform: "capitalize" }}>{p.state}</span>
                     </div>
                   </div>
                 );
@@ -272,14 +263,15 @@ export function PortScanner() {
         </div>
       )}
 
-      {/* Idle state */}
       {!result && !loading && !error && (
-        <div className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl p-4 border-2 border-violet-200 text-center">
-          <Radar className="w-8 h-8 text-violet-400 mx-auto mb-2" />
-          <p className="text-violet-800 font-semibold text-sm">Ready to scan</p>
-          <p className="text-violet-500 text-xs mt-1">Enter a host and press Start Scan</p>
+        <div style={{ backgroundColor: "#f5f3ff", border: "2px solid #ddd6fe", borderRadius: 12, padding: 24, textAlign: "center" }}>
+          <Radar style={{ width: 32, height: 32, color: "#a78bfa", margin: "0 auto 8px" }} />
+          <p style={{ fontSize: 14, fontWeight: 600, color: "#4c1d95", margin: "0 0 4px" }}>Ready to scan</p>
+          <p style={{ fontSize: 12, color: "#7c3aed", margin: 0 }}>Enter a host and press Start Scan</p>
         </div>
       )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
