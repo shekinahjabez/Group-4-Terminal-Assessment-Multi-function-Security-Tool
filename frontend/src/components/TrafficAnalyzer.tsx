@@ -225,10 +225,22 @@ export function TrafficAnalyzer() {
   const takeSnapshot = async () => {
     if (!API) { setError("VITE_API_BASE_URL is not set."); return; }
     setError(null);
+    
+    // Clear previous results before fetching
+    setPackets([]);
+    setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
+    packetId.current = 0;
+
     try {
       const r = await fetch(`${API}/api/traffic/snapshot`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count: 20 }),
+        body: JSON.stringify({
+          count:    20,
+          protocol: filterProto,
+          ip:       filterIP,
+          src_ip:   filterSrc,
+          dst_ip:   filterDst,
+        }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.detail ?? `Error ${r.status}`);
@@ -242,13 +254,22 @@ export function TrafficAnalyzer() {
   const clearAll = () => {
     stopStream();
     setPackets([]);
-    setStats({ total:0, tcp:0, udp:0, icmp:0, other:0 });
+    setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
     packetId.current = 0;
     gotAny.current   = false;
     setError(null);
   };
 
   useEffect(() => () => { esRef.current?.close(); }, []);
+
+  // Clear results when filters change
+  useEffect(() => {
+    if (packets.length > 0 && !running) {
+      setPackets([]);
+      setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
+      packetId.current = 0;
+    }
+  }, [filterProto, filterIP, filterSrc, filterDst]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

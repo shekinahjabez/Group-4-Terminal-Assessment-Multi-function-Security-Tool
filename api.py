@@ -221,8 +221,18 @@ def traffic_stream(
 
 
 class SnapshotRequest(BaseModel):
-    count: int = Field(default=20, ge=1, le=50)
+    count:    int = Field(default=20, ge=1, le=50)
+    protocol: str = ""
+    ip:       str = ""
+    src_ip:   str = ""
+    dst_ip:   str = ""
 
 @app.post("/api/traffic/snapshot")
 def traffic_snapshot(req: SnapshotRequest):
-    return snapshot_traffic(req.count)
+    return snapshot_traffic(
+        count    = req.count,
+        protocol = req.protocol,
+        ip       = req.ip,
+        src_ip   = req.src_ip,
+        dst_ip   = req.dst_ip,
+    )
