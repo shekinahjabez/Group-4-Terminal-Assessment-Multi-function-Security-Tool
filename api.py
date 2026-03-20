@@ -6,10 +6,14 @@ Milestone 2: port scanning, traffic analysis (SSE stream)
 
 import os
 import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 # ── Path setup ────────────────────────────────────────────────────────────────
@@ -18,7 +22,7 @@ SRC_DIR  = os.path.join(BASE_DIR, "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-# ── MS1 imports (unchanged) ───────────────────────────────────────────────────
+# ── MS1 imports ───────────────────────────────────────────────────────────────
 from web_security_tool.password_generator import ProcessGenerator
 from web_security_tool.password_assessor  import PasswordAssessor
 from web_security_tool.input_validator    import InputValidator
@@ -37,12 +41,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        # Production frontend
         "https://group-4-terminal-assessment-multi.onrender.com",
-        # TA frontend
         "https://securekit.onrender.com",
         "https://securekit-whk3.onrender.com",
-        # Local dev
         "http://localhost:5173",
         "http://localhost:3000",
     ],
@@ -100,7 +101,13 @@ class AssessRequest(BaseModel):
 @app.post("/api/assess")
 def assess_password(req: AssessRequest):
     result = PasswordAssessor.evaluate_password(req.password)
-    return {"result": result}
+    # Ensure bullet characters encode correctly
+    if isinstance(result, (list, tuple)):
+        result = [str(r).replace("\u2022", "-") for r in result]
+    return JSONResponse(
+        content={"result": result},
+        media_type="application/json; charset=utf-8",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -138,15 +145,18 @@ def validate_input(req: ValidateRequest):
         )
 
     sanitized_out = "[BLOCKED: SQL detected]" if sql_detected else sanitized
-    return {
-        "field_type":    ft_out,
-        "original":      req.value,
-        "sanitized":     sanitized_out,
-        "was_sanitized": was_sanitized,
-        "notes":         notes,
-        "is_valid":      is_valid,
-        "errors":        errors,
-    }
+    return JSONResponse(
+        content={
+            "field_type":    ft_out,
+            "original":      req.value,
+            "sanitized":     sanitized_out,
+            "was_sanitized": was_sanitized,
+            "notes":         list(notes),
+            "is_valid":      is_valid,
+            "errors":        list(errors),
+        },
+        media_type="application/json; charset=utf-8",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -163,10 +173,6 @@ class ScanRequest(BaseModel):
 
 @app.post("/api/scan")
 def scan_ports(req: ScanRequest):
-    """
-    Run a TCP port scan using MS2's ScanEngine / scan_port() logic.
-    Returns resolved IP, open ports with service names and risk levels.
-    """
     try:
         result = run_scan(
             host    = req.host,
@@ -196,18 +202,6 @@ def traffic_stream(
     src_ip:   str = "",
     dst_ip:   str = "",
 ):
-    """
-    Server-Sent Events stream of captured/simulated packets.
-    Uses MS2's CaptureEngine (scapy AsyncSniffer) when root is available;
-    falls back to realistic simulation on Render / non-root environments.
-
-    Query params mirror MS2's CLI filter options:
-      protocol — tcp | udp | icmp | (empty = all)
-      port     — port number to filter
-      ip       — match src OR dst host
-      src_ip   — match source host only
-      dst_ip   — match destination host only
-    """
     generator = stream_traffic(
         duration = duration,
         protocol = protocol,
@@ -221,7 +215,7 @@ def traffic_stream(
         media_type="text/event-stream",
         headers={
             "Cache-Control":     "no-cache",
-            "X-Accel-Buffering": "no",     # disable Nginx buffering on Render
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -231,5 +225,4 @@ class SnapshotRequest(BaseModel):
 
 @app.post("/api/traffic/snapshot")
 def traffic_snapshot(req: SnapshotRequest):
-    """Single-shot packet snapshot — non-streaming, always simulated."""
     return snapshot_traffic(req.count)
