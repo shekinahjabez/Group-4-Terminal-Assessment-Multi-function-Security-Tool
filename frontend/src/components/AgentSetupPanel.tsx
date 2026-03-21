@@ -18,12 +18,11 @@ interface Props {
   onGrant:    () => void;
   onDeny:     () => void;
   onReset:    () => void;
-  onRecheck:  () => void;
+  onRecheck:  (url?: string) => void;
   onSetUrl:   (url: string) => void;
 }
 
 // ── File download links — point to your Render static files or GitHub raw ────
-// Update these URLs to wherever you host the files (GitHub raw is easiest)
 const GITHUB_RAW = "https://raw.githubusercontent.com/shekinahjabez/Group-4-Terminal-Assessment-Multi-function-Security-Tool/main";
 
 const DOWNLOADS = {
@@ -35,15 +34,24 @@ const DOWNLOADS = {
 
 // ── Download button ───────────────────────────────────────────────────────────
 function DlBtn({ label, url, accent = "#4f46e5" }: { label: string; url: string; accent?: string }) {
+  const handleDownload = async () => {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = label;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
   return (
-    <a href={url} download target="_blank" rel="noreferrer"
-      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", backgroundColor: "#fff", border: `2px solid ${accent}22`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: accent, textDecoration: "none", cursor: "pointer" }}
+    <button onClick={handleDownload}
+      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", backgroundColor: "#fff", border: `2px solid ${accent}22`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: accent, cursor: "pointer" }}
       onMouseEnter={e => (e.currentTarget.style.backgroundColor = `${accent}11`)}
       onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#fff")}
     >
       <Download style={{ width: 12, height: 12 }} />
       {label}
-    </a>
+    </button>
   );
 }
 
@@ -102,7 +110,7 @@ function DownloadPanel() {
 function AgentUrlInput({ agentUrl, onSetUrl, onRecheck }: {
   agentUrl:  string;
   onSetUrl:  (url: string) => void;
-  onRecheck: () => void;
+  onRecheck:  (url?: string) => void;
 }) {
   const [input, setInput] = useState(agentUrl);
   const isNgrok   = input.includes("ngrok") || (input.startsWith("https://") && !input.includes("127.0.0.1"));
@@ -112,7 +120,7 @@ function AgentUrlInput({ agentUrl, onSetUrl, onRecheck }: {
     const clean = input.trim().replace(/\/+$/, "");
     if (!clean) return;
     onSetUrl(clean);
-    setTimeout(onRecheck, 100);
+    onRecheck(clean);  // pass URL directly instead of setTimeout
   };
 
   return (
