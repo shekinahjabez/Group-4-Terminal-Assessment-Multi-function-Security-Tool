@@ -41,7 +41,7 @@ export interface LocalAgentHook {
   grantPermission: () => void;
   denyPermission:  () => void;
   resetPermission: () => void;
-  recheck:         () => void;
+  recheck:         (url?: string) => void;
 }
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
@@ -84,6 +84,9 @@ export function useLocalAgent(): LocalAgentHook {
     try {
       const r = await fetch(`${base}/health`, {
         signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+        headers: {
+          "ngrok-skip-browser-warning": "true",
+        },
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data: AgentHealthPayload = await r.json();
@@ -133,6 +136,6 @@ export function useLocalAgent(): LocalAgentHook {
     grantPermission,
     denyPermission,
     resetPermission,
-    recheck: () => probe(agentUrl),
+    recheck: (url?: string) => probe(url ?? agentUrl),
   };
 }
