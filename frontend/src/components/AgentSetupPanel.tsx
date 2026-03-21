@@ -265,7 +265,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
               </p>
             </div>
           </div>
-          <button onClick={onRecheck} title="Check again"
+          <button onClick={() => onRecheck()} title="Check again"
             style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: "#fef3c7", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#fde68a")}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#fef3c7")}
@@ -305,7 +305,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
             </p>
             <p style={{ fontSize: 10, color: "#0369a1", margin: 0 }}>{reason}</p>
           </div>
-          <button onClick={onRecheck} title="Recheck"
+          <button onClick={() => onRecheck()} title="Recheck"
             style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: "#e0f2fe", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
           >
             <RefreshCw style={{ width: 12, height: 12, color: "#0369a1" }} />
