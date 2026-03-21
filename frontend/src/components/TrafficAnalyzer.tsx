@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Activity, Play, Square, RefreshCw, Download } from "lucide-react";
 
-import { useLocalAgent, LOCAL_AGENT } from "../hooks/useLocalAgent";
+import { useLocalAgent } from "../hooks/useLocalAgent";
 import { AgentSetupPanel } from "./AgentSetupPanel";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
@@ -60,21 +60,19 @@ function parseRawPacket(raw: Record<string, unknown>, id: number): Packet {
 
 // ── PCAP export ───────────────────────────────────────────────────────────────
 function exportPCAP(packets: Packet[]) {
-  const MAGIC       = 0xa1b2c3d4;
-  const LINK_TYPE   = 1;
-  const GLOBAL_HDR  = 24;
-  const PKT_HDR     = 16;
+  const MAGIC      = 0xa1b2c3d4;
+  const LINK_TYPE  = 1;
+  const GLOBAL_HDR = 24;
+  const PKT_HDR    = 16;
 
   const frames: Uint8Array[] = packets.map(p => {
     const payloadSize = Math.max(0, p.length - 14 - 20 - 8);
     const frameLen    = 14 + 20 + 8 + payloadSize;
     const buf         = new Uint8Array(frameLen);
     const view        = new DataView(buf.buffer);
-
     buf.set([0xff,0xff,0xff,0xff,0xff,0xff], 0);
     buf.set([0x00,0x11,0x22,0x33,0x44,0x55], 6);
     view.setUint16(12, 0x0800, false);
-
     const ipOff = 14;
     view.setUint8 (ipOff,      0x45);
     view.setUint8 (ipOff + 1,  0x00);
@@ -91,7 +89,6 @@ function exportPCAP(packets: Packet[]) {
     };
     parseIP(p.src_ip).forEach((b, i) => view.setUint8(ipOff + 12 + i, b));
     parseIP(p.dst_ip).forEach((b, i) => view.setUint8(ipOff + 16 + i, b));
-
     const tOff = ipOff + 20;
     view.setUint16(tOff,     p.src_port ?? 0, false);
     view.setUint16(tOff + 2, p.dst_port ?? 0, false);
@@ -108,7 +105,6 @@ function exportPCAP(packets: Packet[]) {
   const out  = new Uint8Array(totalBytes);
   const view = new DataView(out.buffer);
   let   off  = 0;
-
   view.setUint32(off, MAGIC,     true); off += 4;
   view.setUint16(off, 2,         true); off += 2;
   view.setUint16(off, 4,         true); off += 2;
@@ -116,7 +112,6 @@ function exportPCAP(packets: Packet[]) {
   view.setUint32(off, 0,         true); off += 4;
   view.setUint32(off, 65535,     true); off += 4;
   view.setUint32(off, LINK_TYPE, true); off += 4;
-
   frames.forEach((frame, i) => {
     const pkt = packets[i];
     let ts = 0;
@@ -141,11 +136,11 @@ function exportPCAP(packets: Packet[]) {
 }
 
 export function TrafficAnalyzer() {
-  // ── Agent hook — must be INSIDE the component ────────────────────────────
-  const agent           = useLocalAgent();
+  // ── Agent hook ────────────────────────────────────────────────────────────
+  const agent            = useLocalAgent();
   const isAgentConnected = agent.state === "running-live" || agent.state === "running-no-scapy";
-  const STREAM_BASE     = isAgentConnected ? LOCAL_AGENT : API;
-  const streamPath      = isAgentConnected ? "/traffic/stream" : "/api/traffic/stream";
+  const STREAM_BASE      = isAgentConnected ? agent.agentUrl : API;
+  const streamPath       = isAgentConnected ? "/traffic/stream" : "/api/traffic/stream";
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [packets,     setPackets]     = useState<Packet[]>([]);
@@ -234,14 +229,12 @@ export function TrafficAnalyzer() {
 
     try {
       if (isAgentConnected) {
-        // Use local agent — stream for 5 seconds as a quick snapshot
         const params = new URLSearchParams({ duration: "5" });
         if (filterProto) params.set("protocol", filterProto);
         if (filterIP)    params.set("ip",       filterIP);
         if (filterSrc)   params.set("src_ip",   filterSrc);
         if (filterDst)   params.set("dst_ip",   filterDst);
-
-        const es = new EventSource(`${LOCAL_AGENT}/traffic/stream?${params}`);
+        const es = new EventSource(`${agent.agentUrl}/traffic/stream?${params}`);
         es.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
@@ -252,16 +245,9 @@ export function TrafficAnalyzer() {
         };
         es.onerror = () => es.close();
       } else {
-        // Fall back to Render snapshot endpoint
         const r = await fetch(`${API}/api/traffic/snapshot`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            count:    20,
-            protocol: filterProto,
-            ip:       filterIP,
-            src_ip:   filterSrc,
-            dst_ip:   filterDst,
-          }),
+          body: JSON.stringify({ count: 20, protocol: filterProto, ip: filterIP, src_ip: filterSrc, dst_ip: filterDst }),
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.detail ?? `Error ${r.status}`);
@@ -292,50 +278,43 @@ export function TrafficAnalyzer() {
     }
   }, [filterProto, filterIP, filterSrc, filterDst]);
 
+  // Shared panel props
+  const panelProps = {
+    health:    agent.health,
+    agentUrl:  agent.agentUrl,
+    toolName:  "Traffic Analyzer" as const,
+    onGrant:   agent.grantPermission,
+    onDeny:    agent.denyPermission,
+    onReset:   agent.resetPermission,
+    onRecheck: agent.recheck,
+    onSetUrl:  agent.setAgentUrl,
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       <div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", margin: 0 }}>Traffic Analyzer</h2>
         <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
-          {isAgentConnected
-            ? agent.state === "running-live"
-              ? "🟢 Live capture — your local NIC (via local agent)"
-              : "🟡 Local agent connected — port scan only"
+          {agent.state === "running-live"
+            ? "🟢 Live capture — your local NIC (via local agent)"
+            : agent.state === "running-no-scapy"
+            ? "🟡 Local agent connected — port scan only"
             : "Live packet capture via SSE stream (Python backend)"}
         </p>
       </div>
 
-      {/* Agent setup panel — shown for all non-live states */}
+      {/* Agent setup panel */}
       {!isAgentConnected && (
-        <AgentSetupPanel
-          state={agent.state}
-          health={agent.health}
-          toolName="Traffic Analyzer"
-          onGrant={agent.grantPermission}
-          onDeny={agent.denyPermission}
-          onReset={agent.resetPermission}
-          onRecheck={agent.recheck}
-        />
+        <AgentSetupPanel state={agent.state} {...panelProps} />
       )}
-
-      {/* Partial capability notice when agent is connected but no Scapy */}
       {agent.state === "running-no-scapy" && (
-        <AgentSetupPanel
-          state={agent.state}
-          health={agent.health}
-          toolName="Traffic Analyzer"
-          onGrant={agent.grantPermission}
-          onDeny={agent.denyPermission}
-          onReset={agent.resetPermission}
-          onRecheck={agent.recheck}
-        />
+        <AgentSetupPanel state={agent.state} {...panelProps} />
       )}
 
-      {/* Controls — show when agent connected OR simulation chosen */}
+      {/* Controls */}
       {(isAgentConnected || agent.state === "permission-denied") && (
         <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
             {[
               { label: "Protocol", el: (
@@ -399,7 +378,6 @@ export function TrafficAnalyzer() {
         </div>
       )}
 
-      {/* Stats + Export row */}
       {stats.total > 0 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -436,7 +414,6 @@ export function TrafficAnalyzer() {
         </div>
       )}
 
-      {/* Packet table */}
       {packets.length > 0 ? (
         <div style={{ overflowX: "auto", borderRadius: 10, border: "2px solid #e2e8f0" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
