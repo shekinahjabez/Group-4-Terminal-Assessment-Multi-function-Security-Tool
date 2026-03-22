@@ -185,8 +185,8 @@ def traffic_stream(
         generator,
         media_type="text/event-stream",
         headers={
-            "Cache-Control":               "no-cache",
-            "Access-Control-Allow-Origin": "*",
+            "Cache-Control":     "no-cache",
+            "X-Accel-Buffering": "no",
         },
     )
 

@@ -100,7 +100,7 @@ class _Stats:
 
 # traffic_analyzer_api.py
 
-def _matches_filters(pkt: dict, protocol: str, ip: str, src_ip: str, dst_ip: str) -> bool:
+def _matches_filters(pkt: dict, protocol: str, ip: str, src_ip: str, dst_ip: str, port: str = "") -> bool:
     """Return True if packet passes all active filters."""
     # Protocol filter
     if protocol:
@@ -125,6 +125,17 @@ def _matches_filters(pkt: dict, protocol: str, ip: str, src_ip: str, dst_ip: str
     if dst_ip:
         if dst_ip not in pkt_dst:
             return False
+
+    # Port filter (src OR dst port match)
+    if port:
+        try:
+            p = int(port)
+            pkt_src_port = int(pkt.get("src", "").rsplit(":", 1)[-1])
+            pkt_dst_port = int(pkt.get("dst", "").rsplit(":", 1)[-1])
+            if pkt_src_port != p and pkt_dst_port != p:
+                return False
+        except (ValueError, IndexError):
+            pass  # malformed port — skip filter rather than crash
 
     return True
 
@@ -151,7 +162,7 @@ async def stream_traffic(
         # Apply filters 
         batch = [
             pkt for pkt in raw_batch
-            if _matches_filters(pkt, protocol, ip, src_ip, dst_ip)
+            if _matches_filters(pkt, protocol, ip, src_ip, dst_ip, port)
         ]
 
         for pkt in batch:
@@ -172,7 +183,7 @@ async def stream_traffic(
 
 
 def snapshot_traffic(count: int = 20, protocol: str = "", ip: str = "",
-                     src_ip: str = "", dst_ip: str = "") -> dict:
+                     src_ip: str = "", dst_ip: str = "", port: str = "") -> dict:
     count    = max(1, min(50, count))
     packets  = []
     attempts = 0
@@ -180,7 +191,7 @@ def snapshot_traffic(count: int = 20, protocol: str = "", ip: str = "",
     while len(packets) < count and attempts < 20:
         raw = _simulate_packets(max(count, 10))
         for p in raw:
-            if _matches_filters(p, protocol, ip, src_ip, dst_ip):
+            if _matches_filters(p, protocol, ip, src_ip, dst_ip, port):
                 packets.append(p)
                 if len(packets) >= count:
                     break

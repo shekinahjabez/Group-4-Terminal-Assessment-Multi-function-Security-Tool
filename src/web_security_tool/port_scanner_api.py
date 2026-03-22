@@ -86,7 +86,9 @@ def _build_port_list(
                     pass
             else:
                 try:
-                    result.append(int(token))
+                    p = int(token)
+                    if 1 <= p <= 65535:
+                        result.append(p)
                 except ValueError:
                     pass
         return sorted(set(result))

@@ -229,21 +229,24 @@ export function TrafficAnalyzer() {
 
     try {
       if (isAgentConnected) {
+        stopStream();
+        setRunning(true);
         const params = new URLSearchParams({ duration: "5" });
         if (filterProto) params.set("protocol", filterProto);
         if (filterIP)    params.set("ip",       filterIP);
         if (filterSrc)   params.set("src_ip",   filterSrc);
         if (filterDst)   params.set("dst_ip",   filterDst);
         const es = new EventSource(`${agent.agentUrl}/traffic/stream?${params}`);
+        esRef.current = es;
         es.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
-            if (data.done) { es.close(); return; }
+            if (data.done) { stopStream(); return; }
             if (Array.isArray(data.packets)) addPackets(data.packets);
             else if (data.src || data.src_ip) addPackets([data]);
           } catch { /* ignore */ }
         };
-        es.onerror = () => es.close();
+        es.onerror = () => stopStream();
       } else {
         const r = await fetch(`${API}/api/traffic/snapshot`, {
           method: "POST", headers: { "Content-Type": "application/json" },

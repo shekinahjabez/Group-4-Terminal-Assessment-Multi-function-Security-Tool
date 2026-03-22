@@ -226,6 +226,7 @@ class SnapshotRequest(BaseModel):
     ip:       str = ""
     src_ip:   str = ""
     dst_ip:   str = ""
+    port:     str = ""
 
 @app.post("/api/traffic/snapshot")
 def traffic_snapshot(req: SnapshotRequest):
@@ -235,4 +236,5 @@ def traffic_snapshot(req: SnapshotRequest):
         ip       = req.ip,
         src_ip   = req.src_ip,
         dst_ip   = req.dst_ip,
+        port     = req.port,
     )
