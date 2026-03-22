@@ -3,8 +3,10 @@ traffic_analyzer_api.py  (fixed)
 - Yields first batch immediately (no delay before first data)
 - Sends SSE keepalive comments to prevent premature connection close
 - Falls back cleanly to simulation on Windows / non-root
+- stream_traffic is an async generator (asyncio.sleep) — non-blocking under concurrent load (BUG-03)
 """
 
+import asyncio
 import os
 import sys
 import json
@@ -127,7 +129,7 @@ def _matches_filters(pkt: dict, protocol: str, ip: str, src_ip: str, dst_ip: str
     return True
 
 
-def stream_traffic(
+async def stream_traffic(
     duration: int = 15,
     protocol: str = "",
     port:     str = "",
@@ -142,7 +144,7 @@ def stream_traffic(
 
     while time.time() < end_at:
         if tick > 0:
-            time.sleep(0.6)
+            await asyncio.sleep(0.6)
 
         raw_batch = _simulate_packets(random.randint(3, 8))
 
