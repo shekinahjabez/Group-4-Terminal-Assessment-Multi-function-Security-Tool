@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Radar, Download } from "lucide-react";
+import { useLocalAgent } from "../hooks/useLocalAgent";
+import { AgentSetupPanel } from "./AgentSetupPanel";
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
@@ -84,12 +86,17 @@ export function PortScanner() {
   const [error,       setError]       = useState<string | null>(null);
   const [filterRisk,  setFilterRisk]  = useState("all");
 
+  const agent = useLocalAgent();
+  const isAgentConnected = agent.state === "running-live" || agent.state === "running-no-scapy";
+  const SCAN_BASE = isAgentConnected ? agent.agentUrl : API;
+  const SCAN_PATH = isAgentConnected ? "/scan" : "/api/scan";
+
   const handleScan = async () => {
     if (!host.trim()) { setError("Please enter a target host or IP."); return; }
     setLoading(true); setError(null); setResult(null);
     try {
-      if (!API) throw new Error("VITE_API_BASE_URL is not set.");
-      const r = await fetch(`${API}/api/scan`, {
+      if (!isAgentConnected && !API) throw new Error("VITE_API_BASE_URL is not set.");
+      const r = await fetch(`${SCAN_BASE}${SCAN_PATH}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host: host.trim(), mode, timeout: timeout_, start: startPort, end: endPort, ports: customPorts.trim() }),
@@ -114,6 +121,20 @@ export function PortScanner() {
         <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", margin: 0 }}>Network Port Scanner</h2>
         <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>Scan TCP ports and identify running services (Python backend)</p>
       </div>
+
+      {!isAgentConnected && (
+        <AgentSetupPanel
+          state={agent.state}
+          health={agent.health}
+          agentUrl={agent.agentUrl}
+          toolName="Port Scanner"
+          onGrant={agent.grantPermission}
+          onDeny={agent.denyPermission}
+          onReset={agent.resetPermission}
+          onRecheck={agent.recheck}
+          onSetUrl={agent.setAgentUrl}
+        />
+      )}
 
       {/* Config card */}
       <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>

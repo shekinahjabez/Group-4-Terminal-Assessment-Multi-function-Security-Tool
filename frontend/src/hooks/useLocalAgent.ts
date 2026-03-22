@@ -8,7 +8,7 @@
  * 4. Re-probes every 30 seconds
  * 5. Allows users to set a custom agent URL (e.g. ngrok HTTPS tunnel)
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export const DEFAULT_AGENT_URL = "http://127.0.0.1:8765";
 
@@ -97,12 +97,24 @@ export function useLocalAgent(): LocalAgentHook {
     }
   }, [agentUrl]);
 
+  // Fire initial probe for returning users (permission already granted on a previous visit)
+  useEffect(() => {
+    if (stored === "granted") {
+      probe();
+      const id = setInterval(() => probe(), POLL_INTERVAL_MS);
+      setPollId(id);
+      return () => clearInterval(id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
+
   const startPolling = useCallback((url: string) => {
-    if (pollId) clearInterval(pollId);
-    probe(url);
-    const id = setInterval(() => probe(url), POLL_INTERVAL_MS);
-    setPollId(id);
-  }, [probe, pollId]);
+    setPollId(prev => {
+      if (prev) clearInterval(prev);
+      probe(url);
+      return setInterval(() => probe(url), POLL_INTERVAL_MS);
+    });
+  }, [probe]);
 
   const setAgentUrl = useCallback((url: string) => {
     const clean = url.trim().replace(/\/+$/, "");
