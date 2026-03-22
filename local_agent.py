@@ -84,6 +84,8 @@ app.add_middleware(
     allow_origins=[
         # Production frontend (render.yaml: name: securekit)
         "https://securekit.onrender.com",
+        # Alternative Render deployment URL
+        "https://securekit-whk3.onrender.com",
         # Fallback / legacy service names
         "https://securekit-ta.onrender.com",
         "https://milestone-1-web-security-tool-group-4.onrender.com",

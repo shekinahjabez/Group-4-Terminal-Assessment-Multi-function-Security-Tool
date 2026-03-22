@@ -289,6 +289,19 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
           </button>
         </div>
 
+        {/* Browser compatibility note */}
+        <div style={{ backgroundColor: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#713f12", margin: "0 0 2px" }}>
+            Browser requirement: Chrome or Edge
+          </p>
+          <p style={{ fontSize: 10, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
+            Live agent features require <strong>Chrome</strong> or <strong>Edge</strong> when using the hosted site at{" "}
+            <code style={{ fontFamily: "monospace", backgroundColor: "#fde68a", padding: "1px 3px", borderRadius: 2 }}>securekit.onrender.com</code>.
+            Firefox blocks local connections from HTTPS pages.
+            The <strong>Snapshot</strong> button works in all browsers without the agent.
+          </p>
+        </div>
+
         <DownloadPanel />
         <AgentUrlInput agentUrl={agentUrl} onSetUrl={onSetUrl} onRecheck={onRecheck} />
 
