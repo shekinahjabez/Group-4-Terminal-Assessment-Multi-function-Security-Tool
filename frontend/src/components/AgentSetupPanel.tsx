@@ -34,23 +34,38 @@ const DOWNLOADS = {
 
 // ── Download button ───────────────────────────────────────────────────────────
 function DlBtn({ label, url, accent = "#4f46e5" }: { label: string; url: string; accent?: string }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+
   const handleDownload = async () => {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = label;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    setStatus("loading");
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = label;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setStatus("idle");
+    } catch (err) {
+      console.error("Download failed:", err);
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 3000);
+    }
   };
+
+  const isLoading = status === "loading";
+  const isError   = status === "error";
+
   return (
-    <button onClick={handleDownload}
-      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", backgroundColor: "#fff", border: `2px solid ${accent}22`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: accent, cursor: "pointer" }}
-      onMouseEnter={e => (e.currentTarget.style.backgroundColor = `${accent}11`)}
-      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#fff")}
+    <button onClick={handleDownload} disabled={isLoading}
+      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", backgroundColor: isError ? "#fef2f2" : "#fff", border: `2px solid ${isError ? "#fca5a5" : accent + "22"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: isError ? "#dc2626" : accent, cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1 }}
+      onMouseEnter={e => { if (!isLoading && !isError) e.currentTarget.style.backgroundColor = `${accent}11`; }}
+      onMouseLeave={e => { if (!isError) e.currentTarget.style.backgroundColor = "#fff"; }}
     >
       <Download style={{ width: 12, height: 12 }} />
-      {label}
+      {isLoading ? "Downloading…" : isError ? "Download failed" : label}
     </button>
   );
 }
@@ -71,7 +86,7 @@ function DownloadPanel() {
             🪟 Windows
           </p>
           <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>start_agent_windows.bat</code> — it installs everything and opens ngrok automatically.
+            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> — it installs everything and opens ngrok automatically.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
             <DlBtn label="StartAgent.bat" url={DOWNLOADS.windows.url} accent="#7c3aed" />
@@ -88,7 +103,7 @@ function DownloadPanel() {
           <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 8px", lineHeight: 1.5 }}>
             Download all files into the same folder, open Terminal in that folder, then run:
             <code style={{ display: "block", marginTop: 4, backgroundColor: "#0f172a", color: "#34d399", fontSize: 10, padding: "6px 10px", borderRadius: 6, fontFamily: "monospace" }}>
-              chmod +x start_agent_mac_linux.sh && ./start_agent_mac_linux.sh
+              chmod +x StartAgent.sh && ./StartAgent.sh
             </code>
           </p>
           <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
