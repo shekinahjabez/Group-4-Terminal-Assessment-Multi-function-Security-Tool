@@ -54,9 +54,19 @@ def _is_privileged() -> bool:
         if platform.system() == "Windows":
             import ctypes
             return bool(ctypes.windll.shell32.IsUserAnAdmin())
-        return os.geteuid() == 0
-    except Exception:
-        return False
+        # Root check (Linux and macOS)
+        if os.geteuid() == 0:
+            return True
+        # Linux capability check: try opening a raw packet socket.
+        # Succeeds when cap_net_raw is granted via setcap even without root.
+        if platform.system() == "Linux":
+            import socket as _socket
+            s = _socket.socket(_socket.AF_PACKET, _socket.SOCK_RAW, 0)
+            s.close()
+            return True
+    except (PermissionError, OSError, AttributeError, Exception):
+        pass
+    return False
 
 
 _PRIVILEGED = _is_privileged()
@@ -72,8 +82,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Production frontend (render.yaml: name: securekit)
+        "https://securekit.onrender.com",
+        # Fallback / legacy service names
         "https://securekit-ta.onrender.com",
         "https://milestone-1-web-security-tool-group-4.onrender.com",
+        # Local development
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
@@ -98,16 +112,25 @@ def health():
         else:
             scapy_error = "Scapy is not installed — run: pip install scapy"
 
+    iface_name = ""
+    if _ENGINE_AVAILABLE:
+        try:
+            from scapy.all import conf as scapy_conf
+            iface_name = str(scapy_conf.iface)
+        except Exception:
+            pass
+
     from datetime import datetime
     return {
-        "status":      "ok",
-        "agent":       "local",
-        "version":     _AGENT_VER,
-        "scapy_live":  _ENGINE_AVAILABLE and _PRIVILEGED,
-        "scapy_error": scapy_error,
-        "privileged":  _PRIVILEGED,
-        "os":          _OS,
-        "time":        datetime.utcnow().isoformat() + "Z",
+        "status":        "ok",
+        "agent":         "local",
+        "version":       _AGENT_VER,
+        "scapy_live":    _ENGINE_AVAILABLE and _PRIVILEGED,
+        "scapy_error":   scapy_error,
+        "privileged":    _PRIVILEGED,
+        "os":            _OS,
+        "default_iface": iface_name,
+        "time":          datetime.utcnow().isoformat() + "Z",
     }
 
 
@@ -169,20 +192,24 @@ def traffic_stream(
     ip:       str = "",
     src_ip:   str = "",
     dst_ip:   str = "",
+    iface:    str = "",
 ):
     if stream_traffic is None:
         raise HTTPException(status_code=500, detail="traffic_analyzer_api not found — check your src/ path")
 
+    use_real  = _ENGINE_AVAILABLE and _PRIVILEGED
     generator = stream_traffic(
         duration=duration, protocol=protocol,
         port=port, ip=ip, src_ip=src_ip, dst_ip=dst_ip,
+        use_real=use_real,
+        iface=iface,
     )
     return StreamingResponse(
         generator,
         media_type="text/event-stream",
         headers={
-            "Cache-Control":               "no-cache",
-            "Access-Control-Allow-Origin": "*",
+            "Cache-Control":     "no-cache",
+            "X-Accel-Buffering": "no",
         },
     )
 

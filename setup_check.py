@@ -9,6 +9,7 @@ import sys
 import os
 import platform
 import importlib
+import importlib.metadata
 import subprocess
 import argparse
 
@@ -36,7 +37,6 @@ def check_package(pkg_import: str, pip_name: str, install: bool) -> bool:
     try:
         importlib.import_module(pkg_import)
         try:
-            import importlib.metadata
             ver = importlib.metadata.version(pip_name)
             print(OK(f"{pip_name} {ver}"))
         except Exception:

@@ -1,0 +1,10 @@
+#!/bin/sh
+'''exec' "/home/hanzi/Documents/mmdc/TA SSP/Group-4-Terminal-Assessment-Multi-function-Security-Tool/.venv/bin/python3" "$0" "$@"
+' '''
+# -*- coding: utf-8 -*-
+import re
+import sys
+from scapy.main import interact
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(interact())
