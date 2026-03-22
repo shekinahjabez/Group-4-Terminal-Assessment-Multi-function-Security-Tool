@@ -274,12 +274,15 @@ export function TrafficAnalyzer() {
   useEffect(() => () => { esRef.current?.close(); }, []);
 
   useEffect(() => {
+    // packets.length intentionally omitted from deps — we only want this to fire on filter or
+    // running changes, not on every packet arrival.
     if (packets.length > 0 && !running) {
       setPackets([]);
       setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
       packetId.current = 0;
     }
-  }, [filterProto, filterIP, filterSrc, filterDst]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterProto, filterIP, filterSrc, filterDst, running]);
 
   // Shared panel props
   const panelProps = {
@@ -316,65 +319,63 @@ export function TrafficAnalyzer() {
       )}
 
       {/* Controls — always visible; Start Live Stream is gated on agent connection */}
-      {true && (
-        <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-            {[
-              { label: "Protocol", el: (
-                <select value={filterProto} onChange={e => setFilterProto(e.target.value)}
-                  style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none" }}
-                >
-                  <option value="">All</option>
-                  {["tcp","udp","icmp"].map(p => <option key={p} value={p}>{p.toUpperCase()}</option>)}
-                </select>
-              )},
-              { label: "IP (src or dst)", el: <input type="text" value={filterIP}  onChange={e => setFilterIP(e.target.value)}  placeholder="192.168.1.x" style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" as const }} /> },
-              { label: "Source IP",       el: <input type="text" value={filterSrc} onChange={e => setFilterSrc(e.target.value)} placeholder="src only"      style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" as const }} /> },
-              { label: "Destination IP",  el: <input type="text" value={filterDst} onChange={e => setFilterDst(e.target.value)} placeholder="dst only"      style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" as const }} /> },
-            ].map(({ label, el }) => (
-              <div key={label}>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{label}</label>
-                {el}
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <label style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Capture duration</label>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#e11d48" }}>{duration}s</span>
+      <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          {[
+            { label: "Protocol", el: (
+              <select value={filterProto} onChange={e => setFilterProto(e.target.value)}
+                style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none" }}
+              >
+                <option value="">All</option>
+                {["tcp","udp","icmp"].map(p => <option key={p} value={p}>{p.toUpperCase()}</option>)}
+              </select>
+            )},
+            { label: "IP (src or dst)", el: <input type="text" value={filterIP}  onChange={e => setFilterIP(e.target.value)}  placeholder="192.168.1.x" style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" as const }} /> },
+            { label: "Source IP",       el: <input type="text" value={filterSrc} onChange={e => setFilterSrc(e.target.value)} placeholder="src only"      style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" as const }} /> },
+            { label: "Destination IP",  el: <input type="text" value={filterDst} onChange={e => setFilterDst(e.target.value)} placeholder="dst only"      style={{ width: "100%", padding: "6px 8px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#334155", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" as const }} /> },
+          ].map(({ label, el }) => (
+            <div key={label}>
+              <label style={{ display: "block", fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{label}</label>
+              {el}
             </div>
-            <input type="range" min={5} max={60} step={5} value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={running}
-              style={{ width: "100%", accentColor: "#e11d48", cursor: running ? "not-allowed" : "pointer" }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 10, color: "#94a3b8" }}>5s</span>
-              <span style={{ fontSize: 10, color: "#94a3b8" }}>60s</span>
-            </div>
-          </div>
+          ))}
+        </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            {!running ? (
-              <button onClick={startStream} disabled={!isAgentConnected}
-                title={!isAgentConnected ? "Start the local agent to enable live streaming" : undefined}
-                style={{ flex: 1, backgroundColor: isAgentConnected ? "#e11d48" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: isAgentConnected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: isAgentConnected ? 1 : 0.6 }}
-                onMouseEnter={e => { if (isAgentConnected) e.currentTarget.style.backgroundColor = "#be123c"; }}
-                onMouseLeave={e => { if (isAgentConnected) e.currentTarget.style.backgroundColor = "#e11d48"; }}
-              ><Play style={{ width: 14, height: 14 }} />Start Live Stream</button>
-            ) : (
-              <button onClick={stopStream}
-                style={{ flex: 1, backgroundColor: "#334155", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              ><Square style={{ width: 14, height: 14 }} />Stop</button>
-            )}
-            <button onClick={takeSnapshot} disabled={running}
-              style={{ backgroundColor: "#fff", color: "#e11d48", border: "2px solid #fecdd3", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: running ? "not-allowed" : "pointer", opacity: running ? 0.4 : 1, display: "flex", alignItems: "center", gap: 6 }}
-            ><RefreshCw style={{ width: 13, height: 13 }} />Snapshot</button>
-            <button onClick={clearAll}
-              style={{ backgroundColor: "#fff", color: "#64748b", border: "2px solid #e2e8f0", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
-            >Clear</button>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <label style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Capture duration</label>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#e11d48" }}>{duration}s</span>
+          </div>
+          <input type="range" min={5} max={60} step={5} value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={running}
+            style={{ width: "100%", accentColor: "#e11d48", cursor: running ? "not-allowed" : "pointer" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>5s</span>
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>60s</span>
           </div>
         </div>
-      )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          {!running ? (
+            <button onClick={startStream} disabled={!isAgentConnected}
+              title={!isAgentConnected ? "Start the local agent to enable live streaming" : undefined}
+              style={{ flex: 1, backgroundColor: isAgentConnected ? "#e11d48" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: isAgentConnected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: isAgentConnected ? 1 : 0.6 }}
+              onMouseEnter={e => { if (isAgentConnected) e.currentTarget.style.backgroundColor = "#be123c"; }}
+              onMouseLeave={e => { if (isAgentConnected) e.currentTarget.style.backgroundColor = "#e11d48"; }}
+            ><Play style={{ width: 14, height: 14 }} />Start Live Stream</button>
+          ) : (
+            <button onClick={stopStream}
+              style={{ flex: 1, backgroundColor: "#334155", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            ><Square style={{ width: 14, height: 14 }} />Stop</button>
+          )}
+          <button onClick={takeSnapshot} disabled={running}
+            style={{ backgroundColor: "#fff", color: "#e11d48", border: "2px solid #fecdd3", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: running ? "not-allowed" : "pointer", opacity: running ? 0.4 : 1, display: "flex", alignItems: "center", gap: 6 }}
+          ><RefreshCw style={{ width: 13, height: 13 }} />Snapshot</button>
+          <button onClick={clearAll}
+            style={{ backgroundColor: "#fff", color: "#64748b", border: "2px solid #e2e8f0", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+          >Clear</button>
+        </div>
+      </div>
 
       {error && (
         <div style={{ backgroundColor: "#fef2f2", border: "2px solid #fecaca", borderRadius: 10, padding: "10px 14px", color: "#dc2626", fontSize: 12, display: "flex", gap: 8 }}>

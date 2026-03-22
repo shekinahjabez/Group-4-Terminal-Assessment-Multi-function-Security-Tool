@@ -169,14 +169,17 @@ class _Stats:
 
     def to_dict(self) -> dict:
         t = max(self.total, 1)
+        tcp_pct   = round(self.tcp / t * 100)
+        udp_pct   = round(self.udp / t * 100)
+        other_pct = max(0, 100 - tcp_pct - udp_pct)
         return {
             "total_packets": self.total,
             "total_bytes":   self.bytes,
             "suspicious":    self.sus,
             "unique_hosts":  len(self.hosts),
-            "tcp_pct":       round(self.tcp   / t * 100),
-            "udp_pct":       round(self.udp   / t * 100),
-            "other_pct":     round(self.other / t * 100),
+            "tcp_pct":       tcp_pct,
+            "udp_pct":       udp_pct,
+            "other_pct":     other_pct,
         }
 
 
