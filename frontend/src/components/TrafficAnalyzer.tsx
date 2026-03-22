@@ -312,8 +312,8 @@ export function TrafficAnalyzer() {
         <AgentSetupPanel state={agent.state} {...panelProps} />
       )}
 
-      {/* Controls */}
-      {(isAgentConnected || agent.state === "permission-denied") && (
+      {/* Controls — always visible; Start Live Stream is gated on agent connection */}
+      {true && (
         <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
             {[
@@ -352,10 +352,11 @@ export function TrafficAnalyzer() {
 
           <div style={{ display: "flex", gap: 8 }}>
             {!running ? (
-              <button onClick={startStream}
-                style={{ flex: 1, backgroundColor: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#be123c")}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#e11d48")}
+              <button onClick={startStream} disabled={!isAgentConnected}
+                title={!isAgentConnected ? "Start the local agent to enable live streaming" : undefined}
+                style={{ flex: 1, backgroundColor: isAgentConnected ? "#e11d48" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: isAgentConnected ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: isAgentConnected ? 1 : 0.6 }}
+                onMouseEnter={e => { if (isAgentConnected) e.currentTarget.style.backgroundColor = "#be123c"; }}
+                onMouseLeave={e => { if (isAgentConnected) e.currentTarget.style.backgroundColor = "#e11d48"; }}
               ><Play style={{ width: 14, height: 14 }} />Start Live Stream</button>
             ) : (
               <button onClick={stopStream}
@@ -449,7 +450,7 @@ export function TrafficAnalyzer() {
           </table>
         </div>
       ) : (
-        !running && !error && (isAgentConnected || agent.state === "permission-denied") && (
+        !running && !error && (
           <div style={{ backgroundColor: "#fff1f2", border: "2px solid #fecdd3", borderRadius: 12, padding: 24, textAlign: "center" }}>
             <Activity style={{ width: 32, height: 32, color: "#fb7185", margin: "0 auto 8px" }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: "#9f1239", margin: "0 0 4px" }}>No traffic captured yet</p>

@@ -72,8 +72,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Production frontend (render.yaml: name: securekit)
+        "https://securekit.onrender.com",
+        # Fallback / legacy service names
         "https://securekit-ta.onrender.com",
         "https://milestone-1-web-security-tool-group-4.onrender.com",
+        # Local development
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
