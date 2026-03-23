@@ -24,6 +24,7 @@ interface ScanResult {
 
 type ScanMode = "common" | "range" | "custom";
 
+// checks if a host string looks like a private or local ip address
 function isPrivateIP(value: string): boolean {
   const h = value.trim();
   return (
@@ -43,6 +44,7 @@ const RISK_STYLE: Record<string, { bg: string; border: string; badge_bg: string;
 const RISK_ICONS: Record<string, string> = { high: "✕", medium: "⚠", low: "✓", info: "i" };
 
 // ── Export helpers ─────────────────────────────────────────────────────────────
+// downloads the scan results as a csv file
 function exportCSV(result: ScanResult) {
   const rows = [
     ["Port", "State", "Service", "Risk"],
@@ -65,6 +67,7 @@ function exportCSV(result: ScanResult) {
   URL.revokeObjectURL(url);
 }
 
+// downloads the scan results as a json file
 function exportJSON(result: ScanResult) {
   const payload = {
     meta: {
@@ -84,6 +87,7 @@ function exportJSON(result: ScanResult) {
   URL.revokeObjectURL(url);
 }
 
+// main port scanner component, handles scan config and results display
 export function PortScanner() {
   const [host,        setHost]        = useState("");
   const [mode,        setMode]        = useState<ScanMode>("common");
@@ -102,6 +106,7 @@ export function PortScanner() {
   const SCAN_PATH = isAgentConnected ? "/scan" : "/api/scan";
   const showPrivateIPWarning = !isAgentConnected && isPrivateIP(host);
 
+  // sends the scan request to the agent and stores the results
   const handleScan = async () => {
     if (!host.trim()) { setError("Please enter a target host or IP."); return; }
     if (!isAgentConnected) { setError("Start the local agent to run a port scan."); return; }
@@ -221,7 +226,7 @@ export function PortScanner() {
         >
           {loading
             ? <><span style={{ width: 16, height: 16, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />Scanning...</>
-            : <><Radar style={{ width: 16, height: 16 }} />Start Scan</>}
+            : <><Radar style={{ width: 14, height: 14 }} />Start Scan</>}
         </button>
       </div>
 
@@ -261,14 +266,14 @@ export function PortScanner() {
                 onMouseEnter={e => (e.currentTarget.style.borderColor = "#7c3aed")}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
               >
-                <Download style={{ width: 13, height: 13 }} />Export CSV
+                <Download style={{ width: 12, height: 12 }} />Export CSV
               </button>
               <button onClick={() => exportJSON(result)}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "2px solid #e2e8f0", backgroundColor: "#fff", color: "#475569", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = "#7c3aed")}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
               >
-                <Download style={{ width: 13, height: 13 }} />Export JSON
+                <Download style={{ width: 12, height: 12 }} />Export JSON
               </button>
             </div>
           </div>
@@ -302,7 +307,7 @@ export function PortScanner() {
 
       {!result && !loading && !error && (
         <div style={{ backgroundColor: "#f5f3ff", border: "2px solid #ddd6fe", borderRadius: 12, padding: 24, textAlign: "center" }}>
-          <Radar style={{ width: 32, height: 32, color: "#a78bfa", margin: "0 auto 8px" }} />
+          <Radar style={{ width: 32, height: 32, color: "#7c3aed", marginBottom: 8 }} />
           <p style={{ fontSize: 14, fontWeight: 600, color: "#4c1d95", margin: "0 0 4px" }}>Ready to scan</p>
           <p style={{ fontSize: 12, color: "#7c3aed", margin: 0 }}>Enter a host and press Start Scan</p>
         </div>

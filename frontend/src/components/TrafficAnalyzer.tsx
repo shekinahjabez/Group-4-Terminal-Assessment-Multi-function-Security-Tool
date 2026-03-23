@@ -33,6 +33,7 @@ const PROTO_COLORS: Record<string, { bg: string; text: string; border: string }>
 const protoColor = (p: string) =>
   PROTO_COLORS[(p || "").toUpperCase()] ?? { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
 
+// normalizes a raw sse packet object into a typed Packet for the table
 function parseRawPacket(raw: Record<string, unknown>, id: number): Packet {
   const splitAddr = (addr: string) => {
     if (!addr) return { ip: "—", port: null };
@@ -59,6 +60,7 @@ function parseRawPacket(raw: Record<string, unknown>, id: number): Packet {
 }
 
 // ── PCAP export ───────────────────────────────────────────────────────────────
+// builds a pcap binary from captured packets and triggers a download
 function exportPCAP(packets: Packet[]) {
   const MAGIC      = 0xa1b2c3d4;
   const LINK_TYPE  = 1;
@@ -135,6 +137,7 @@ function exportPCAP(packets: Packet[]) {
   URL.revokeObjectURL(url);
 }
 
+// main traffic analyzer component, manages streaming, filters, and the packet table
 export function TrafficAnalyzer() {
   // ── Agent hook ────────────────────────────────────────────────────────────
   const agent            = useLocalAgent();
@@ -157,6 +160,7 @@ export function TrafficAnalyzer() {
   const packetId = useRef(0);
   const gotAny   = useRef(false);
 
+  // appends new packets to state and updates the protocol stats counters
   const addPackets = useCallback((raws: Record<string, unknown>[]) => {
     if (!raws.length) return;
     gotAny.current = true;
@@ -176,12 +180,14 @@ export function TrafficAnalyzer() {
     });
   }, []);
 
+  // closes the event source and marks the stream as stopped
   const stopStream = useCallback(() => {
     esRef.current?.close();
     esRef.current = null;
     setRunning(false);
   }, []);
 
+  // opens an sse connection to the agent and starts receiving packets
   const startStream = useCallback(() => {
     if (!isAgentConnected) {
       setError("Start the local agent to enable live streaming.");
@@ -217,6 +223,7 @@ export function TrafficAnalyzer() {
     };
   }, [isAgentConnected, STREAM_BASE, streamPath, duration, filterProto, filterIP, filterSrc, filterDst, addPackets, stopStream]);
 
+  // starts a short 5-second capture and shows the packets
   const takeSnapshot = async () => {
     if (!isAgentConnected) {
       setError("Start the local agent to use Snapshot.");
@@ -251,6 +258,7 @@ export function TrafficAnalyzer() {
     }
   };
 
+  // stops the stream and clears all packets and stats from the screen
   const clearAll = () => {
     stopStream();
     setPackets([]);
@@ -359,7 +367,7 @@ export function TrafficAnalyzer() {
           <button onClick={takeSnapshot} disabled={running || !isAgentConnected}
             title={!isAgentConnected ? "Start the local agent to use Snapshot" : undefined}
             style={{ backgroundColor: "#fff", color: isAgentConnected ? "#e11d48" : "#94a3b8", border: `2px solid ${isAgentConnected ? "#fecdd3" : "#e2e8f0"}`, borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: (running || !isAgentConnected) ? "not-allowed" : "pointer", opacity: (running || !isAgentConnected) ? 0.4 : 1, display: "flex", alignItems: "center", gap: 6 }}
-          ><RefreshCw style={{ width: 13, height: 13 }} />Snapshot</button>
+          ><RefreshCw style={{ width: 14, height: 14 }} />Snapshot</button>
           <button onClick={clearAll}
             style={{ backgroundColor: "#fff", color: "#64748b", border: "2px solid #e2e8f0", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
           >Clear</button>
@@ -394,8 +402,7 @@ export function TrafficAnalyzer() {
               onMouseEnter={e => (e.currentTarget.style.borderColor = "#e11d48")}
               onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
             >
-              <Download style={{ width: 13, height: 13 }} />
-              Export PCAP ({packets.length} pkts)
+              <Download style={{ width: 12, height: 12 }} />Export PCAP ({packets.length} pkts)
             </button>
           )}
         </div>
@@ -445,7 +452,7 @@ export function TrafficAnalyzer() {
       ) : (
         !running && !error && (
           <div style={{ backgroundColor: "#fff1f2", border: "2px solid #fecdd3", borderRadius: 12, padding: 24, textAlign: "center" }}>
-            <Activity style={{ width: 32, height: 32, color: "#fb7185", margin: "0 auto 8px" }} />
+            <Activity style={{ width: 32, height: 32, color: "#fb7185", marginBottom: 8 }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: "#9f1239", margin: "0 0 4px" }}>No traffic captured yet</p>
             <p style={{ fontSize: 12, color: "#fb7185", margin: 0 }}>Connect the local agent and press <strong>Start Live Stream</strong> to begin, or <strong>Snapshot</strong> for a quick 5-second capture.</p>
           </div>

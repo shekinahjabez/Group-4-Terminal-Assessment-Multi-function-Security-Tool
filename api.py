@@ -59,6 +59,7 @@ app.add_middleware(
 @app.get("/", include_in_schema=False)
 @app.api_route("/api", methods=["GET", "HEAD"], include_in_schema=False)
 def root():
+    # returns a list of available API endpoints
     return {
         "status":  "ok",
         "service": "SecureKit Backend v2.0",
@@ -74,6 +75,7 @@ def root():
 
 @app.get("/health")
 def health():
+    # sends back a simple ok status with the current time
     from datetime import datetime
     return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z"}
 
@@ -87,6 +89,7 @@ class GenerateRequest(BaseModel):
 
 @app.post("/api/generate")
 def generate_password(req: GenerateRequest):
+    # generates a password and returns its hash values
     pwd, sha, bcr, ts = ProcessGenerator.generate(req.length)
     return {"password": pwd, "sha256": sha, "bcrypt": bcr, "timestamp": ts}
 
@@ -100,6 +103,7 @@ class AssessRequest(BaseModel):
 
 @app.post("/api/assess")
 def assess_password(req: AssessRequest):
+    # checks how strong the given password is and returns the result
     result = PasswordAssessor.evaluate_password(req.password)
     # Ensure bullet characters encode correctly
     if isinstance(result, (list, tuple)):
@@ -120,6 +124,7 @@ class ValidateRequest(BaseModel):
 
 @app.post("/api/validate")
 def validate_input(req: ValidateRequest):
+    # sanitizes and validates a form field based on its type
     ft = (req.field_type or "").lower().strip()
     sanitized, was_sanitized, notes = InputValidator.sanitize_input(req.value, ft)
 
@@ -173,6 +178,7 @@ class ScanRequest(BaseModel):
 
 @app.post("/api/scan")
 def scan_ports(req: ScanRequest):
+    # runs a TCP port scan on the given host and returns the results
     try:
         result = run_scan(
             host    = req.host,
@@ -202,6 +208,7 @@ def traffic_stream(
     src_ip:   str = "",
     dst_ip:   str = "",
 ):
+    # starts an SSE stream of simulated network traffic packets
     generator = stream_traffic(
         duration = duration,
         protocol = protocol,
@@ -230,6 +237,7 @@ class SnapshotRequest(BaseModel):
 
 @app.post("/api/traffic/snapshot")
 def traffic_snapshot(req: SnapshotRequest):
+    # returns a one-time batch of simulated packets
     return snapshot_traffic(
         count    = req.count,
         protocol = req.protocol,

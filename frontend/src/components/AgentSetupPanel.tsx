@@ -84,7 +84,7 @@ function DownloadPanel() {
           </p>
         </div>
         <div style={{ backgroundColor: "#fff", border: "1px solid #e9d5ff", borderRadius: 8, padding: 10 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", margin: "0 0 4px", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>🍎 Mac / 🐧 Linux</p>
+          <p style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", margin: "0 0 4px", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Mac / Linux</p>
           <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 4px", lineHeight: 1.5 }}>Open Terminal in the extracted folder and run:</p>
           <code style={{ display: "block", backgroundColor: "#0f172a", color: "#34d399", fontSize: 10, padding: "6px 10px", borderRadius: 6, fontFamily: "monospace" }}>
             chmod +x StartAgent.sh && ./StartAgent.sh
