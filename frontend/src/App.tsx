@@ -351,6 +351,59 @@ export default function App() {
           Group 4 · MO-IT142 · Security Script Programming
         </p>
       </div>
+
+      {/* User Guide — fixed bottom-left button */}
+      <a
+        href="/user-guide.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          position: "fixed",
+          bottom: 20,
+          left: 20,
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          backgroundColor: "#4f46e5",
+          color: "#fff",
+          border: "none",
+          borderRadius: 999,
+          padding: "10px 18px",
+          fontSize: 13,
+          fontWeight: 600,
+          textDecoration: "none",
+          boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
+          cursor: "pointer",
+          transition: "background-color 0.2s, box-shadow 0.2s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#4338ca";
+          (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 6px 20px rgba(79,70,229,0.45)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#4f46e5";
+          (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 4px 14px rgba(79,70,229,0.35)";
+        }}
+      >
+        {/* Inline book-open SVG (Lucide-compatible, no library import) */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ flexShrink: 0 }}
+        >
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+        </svg>
+        User Guide
+      </a>
     </div>
   );
 }
