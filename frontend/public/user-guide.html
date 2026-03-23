@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureKit — User Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ── Exact SecureKit palette from App.tsx ── */
+      --bg-app:      #f8fafc;
+      --bg-home:     #eef2f7;
+      --surface:     #ffffff;
+      --border:      #e2e8f0;
+      --border-soft: #f1f5f9;
+
+      --indigo:      #4f46e5;
+      --indigo-hov:  #4338ca;
+      --indigo-dim:  rgba(79,70,229,0.08);
+      --indigo-dim2: rgba(79,70,229,0.15);
+      --blue:        #2563eb;
+      --violet:      #7c3aed;
+      --emerald:     #16a34a;
+      --rose:        #f43f5e;
+      --amber:       #d97706;
+
+      --text-head:   #0f172a;
+      --text-body:   #1e293b;
+      --text-muted:  #64748b;
+      --text-subtle: #94a3b8;
+
+      --shadow-sm:   0 1px 4px rgba(0,0,0,0.06);
+      --shadow-md:   0 4px 12px rgba(0,0,0,0.08);
+      --shadow-logo: 0 2px 8px rgba(79,70,229,0.3);
+
+      --sidebar-w: 230px;
+      --topbar-h:  52px;
+    }
+
+    html { scroll-behavior: smooth; font-size: 15px; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-app);
+      color: var(--text-body);
+      line-height: 1.6;
+    }
+
+    /* ────────────────────────────────────────────
+       TOP BAR  (mirrors SecureKit's exact header)
+    ──────────────────────────────────────────── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--topbar-h);
+      background: var(--bg-app);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 200;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    /* KeyRound icon box — exact replica */
+    .brand-icon {
+      width: 32px; height: 32px;
+      background: var(--indigo);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--shadow-logo);
+      flex-shrink: 0;
+    }
+
+    .brand-icon svg { width: 16px; height: 16px; color: #fff; }
+
+    .brand-text { text-align: left; }
+    .brand-name {
+      display: block;
+      font-size: 13px;
+      font-weight: 900;
+      color: var(--text-head);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .brand-sub {
+      display: block;
+      font-size: 10px;
+      color: var(--text-subtle);
+      font-family: monospace;
+      margin-top: 1px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-open {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--indigo);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-open:hover { background: var(--indigo-hov); }
+    .btn-open svg { width: 13px; height: 13px; }
+
+    .api-dot {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-subtle);
+      font-family: monospace;
+    }
+    .api-dot span {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      display: inline-block;
+    }
+
+    /* ────────────────────────────────────────────
+       SIDEBAR
+    ──────────────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      top: var(--topbar-h);
+      left: 8px;
+      bottom: 8px;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      overflow-y: auto;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      gap: 4px;
+    }
+
+    .nav-home-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+      width: 100%;
+    }
+
+    .nav-home-btn:hover { background: var(--bg-app); color: var(--text-body); }
+
+    .nav-home-icon {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      background: var(--border-soft);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-home-icon svg { width: 14px; height: 14px; color: var(--text-subtle); }
+
+    .nav-divider {
+      border: none;
+      border-top: 1px solid var(--border-soft);
+      margin: 4px 0;
+    }
+
+    .nav-group-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+
+    .nav-group-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .nav-group-sub {
+      font-size: 9px;
+      color: var(--text-subtle);
+      font-family: monospace;
+      font-weight: 400;
+    }
+
+    .nav-items { margin-left: 8px; padding-left: 12px; border-left: 2px solid var(--border-soft); }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      margin-bottom: 2px;
+      position: relative;
+    }
+
+    .nav-link:hover {
+      background: var(--bg-app);
+      color: var(--text-body);
+      border-color: var(--border);
+    }
+
+    .nav-link.active {
+      border-color: var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* active bar */
+    .nav-link.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 6px; bottom: 6px;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+    }
+
+    .nav-icon-wrap {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      background: var(--border-soft);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-link.active .nav-icon-wrap { background: #fff; box-shadow: var(--shadow-sm); }
+    .nav-icon-wrap svg { width: 13px; height: 13px; }
+
+    .nav-link-title { font-weight: 600; line-height: 1; margin-bottom: 2px; font-size: 11.5px; }
+    .nav-link-sub   { font-size: 10px; font-family: monospace; opacity: 0.6; }
+
+    /* per-tool color theming */
+    .t-blue   { --tc: #2563eb; --tca: #eff6ff; --tcb: #bfdbfe; --tct: #1d4ed8; }
+    .t-indigo { --tc: #4f46e5; --tca: #eef2ff; --tcb: #c7d2fe; --tct: #4338ca; }
+    .t-violet { --tc: #7c3aed; --tca: #f5f3ff; --tcb: #ddd6fe; --tct: #6d28d9; }
+    .t-emerald{ --tc: #059669; --tca: #ecfdf5; --tcb: #a7f3d0; --tct: #047857; }
+    .t-rose   { --tc: #e11d48; --tca: #fff1f2; --tcb: #fecdd3; --tct: #be123c; }
+
+    .nav-link.active { background: var(--tca); color: var(--tct); border-color: var(--tcb); }
+    .nav-link.active .nav-icon-wrap svg { color: var(--tc); }
+    .nav-link.active .nav-link-title { color: var(--tct); }
+    .nav-link.active::before { background: var(--tc); }
+
+    /* ────────────────────────────────────────────
+       MAIN CONTENT
+    ──────────────────────────────────────────── */
+    .main {
+      margin-left: calc(var(--sidebar-w) + 28px);
+      margin-top: var(--topbar-h);
+      padding: 32px 40px 80px;
+      max-width: 860px;
+    }
+
+    /* ────────────────────────────────────────────
+       HERO / HOME SECTION
+    ──────────────────────────────────────────── */
+    .hero {
+      background: var(--bg-home);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 40px 36px 36px;
+      margin-bottom: 28px;
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .hero-top svg { width: 26px; height: 26px; color: var(--indigo); }
+    .hero-top-label { font-size: 20px; font-weight: 700; color: var(--text-body); }
+
+    .hero-center { text-align: center; margin-bottom: 28px; }
+    .hero-shield { color: #6366f1; width: 56px; height: 56px; margin: 0 auto 14px; display: block; }
+    .hero-center h1 { font-size: 22px; font-weight: 700; color: var(--text-body); margin-bottom: 10px; }
+    .hero-center p  { font-size: 14px; color: var(--text-muted); max-width: 520px; margin: 0 auto; line-height: 1.6; }
+
+    .hero-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .hero-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .hero-card-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .hero-card-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .hero-card-icon svg { width: 22px; height: 22px; color: #fff; }
+    .icon-indigo { background: var(--indigo); box-shadow: 0 4px 12px rgba(79,70,229,0.25); }
+    .icon-blue   { background: var(--blue);   box-shadow: 0 4px 12px rgba(37,99,235,0.25); }
+
+    .hero-card-title { font-size: 16px; font-weight: 700; color: var(--text-body); }
+    .hero-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
+
+    .hero-card-links { margin-bottom: 18px; }
+
+    .hero-card-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .hero-card-link svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .hero-card-link:hover { color: var(--indigo); }
+    .link-indigo svg { color: #6366f1; }
+    .link-blue   svg { color: #3b82f6; }
+    .link-blue:hover { color: var(--blue) !important; }
+
+    .btn-card {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 0;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #fff;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .btn-card:hover { opacity: 0.88; }
+    .btn-card svg { width: 16px; height: 16px; }
+    .btn-indigo { background: var(--indigo); }
+    .btn-blue   { background: var(--blue); }
+
+    .hero-pills {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .hero-pill {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+
+    .hero-pill-icon {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+
+    .hero-pill-icon svg { width: 24px; height: 24px; }
+    .pill-green  { background: #dcfce7; } .pill-green  svg { color: #16a34a; }
+    .pill-blue   { background: #dbeafe; } .pill-blue   svg { color: #2563eb; }
+    .pill-purple { background: #ede9fe; } .pill-purple svg { color: #7c3aed; }
+
+    .hero-pill h4 { font-size: 13px; font-weight: 600; color: var(--text-body); margin-bottom: 6px; }
+    .hero-pill p  { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0; }
+
+    .hero-about {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .hero-about-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .hero-about-head svg { width: 16px; height: 16px; color: var(--indigo); }
+    .hero-about-head span { font-size: 13px; font-weight: 600; color: var(--text-body); }
+    .hero-about p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+    .tech-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+
+    .tech-tag {
+      font-size: 10px;
+      font-family: monospace;
+      background: var(--bg-app);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+
+    /* ────────────────────────────────────────────
+       SECTION CARDS
+    ──────────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      padding: 32px;
+      margin-bottom: 24px;
+      scroll-margin-top: calc(var(--topbar-h) + 16px);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .section-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .section-icon svg { width: 22px; height: 22px; color: #fff; }
+
+    .section-header h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-head);
+      margin-bottom: 3px;
+    }
+
+    .section-sub { font-size: 13px; color: var(--text-muted); }
+
+    p { color: var(--text-muted); margin-bottom: 16px; font-size: 14px; }
+    p strong { color: var(--text-body); }
+
+    /* ────────────────────────────────────────────
+       SCREENSHOT
+    ──────────────────────────────────────────── */
+    .screenshot-wrap {
+      margin: 20px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .screenshot-bar {
+      background: var(--bg-app);
+      padding: 9px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #fc685a; }
+    .dot-y { background: #fdbc40; }
+    .dot-g { background: #34c84a; }
+
+    .screenshot-label { margin-left: 8px; font-size: 11px; color: var(--text-subtle); font-family: monospace; }
+    .screenshot-wrap img { width: 100%; display: block; }
+
+    /* ────────────────────────────────────────────
+       STEPS
+    ──────────────────────────────────────────── */
+    .steps { list-style: none; margin: 18px 0; }
+
+    .steps li {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-text { font-size: 14px; color: var(--text-body); }
+    .step-note { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+
+    /* ────────────────────────────────────────────
+       CALLOUT
+    ──────────────────────────────────────────── */
+    .callout {
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 18px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 13px;
+    }
+
+    .callout svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+    .callout-title { font-weight: 600; margin-bottom: 3px; font-size: 13px; }
+    .callout p { margin: 0; font-size: 13px; }
+
+    .callout-info   { background: #eff6ff; border: 1px solid #bfdbfe; }
+    .callout-info   svg, .callout-info   .callout-title { color: #1d4ed8; }
+    .callout-info   p { color: #1e40af; }
+
+    .callout-warn   { background: #fffbeb; border: 1px solid #fde68a; }
+    .callout-warn   svg, .callout-warn   .callout-title { color: #92400e; }
+    .callout-warn   p { color: #78350f; }
+
+    .callout-danger { background: #fff1f2; border: 1px solid #fecdd3; }
+    .callout-danger svg, .callout-danger .callout-title { color: #be123c; }
+    .callout-danger p { color: #9f1239; }
+
+    .callout-success { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .callout-success svg, .callout-success .callout-title { color: #166534; }
+    .callout-success p { color: #14532d; }
+
+    /* ────────────────────────────────────────────
+       TABLE
+    ──────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 13px;
+    }
+
+    th {
+      background: var(--bg-app);
+      color: var(--text-body);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--text-muted);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-app); }
+
+    code {
+      background: var(--bg-app);
+      border: 1px solid var(--border);
+      color: var(--indigo);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    /* ────────────────────────────────────────────
+       BADGES
+    ──────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+    .badge-blue   { background: #dbeafe; color: #1e40af; }
+    .badge-indigo { background: #e0e7ff; color: #3730a3; }
+    .badge-violet { background: #f5f3ff; color: #5b21b6; }
+
+    /* ────────────────────────────────────────────
+       TWO-COLUMN CARDS
+    ──────────────────────────────────────────── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; }
+
+    .card {
+      background: var(--bg-app);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+
+    .card h4 { font-size: 13px; font-weight: 600; color: var(--text-body); margin-bottom: 8px; }
+
+    .card ul { list-style: none; }
+    .card ul li {
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 3px 0 3px 14px;
+      position: relative;
+    }
+
+    .card ul li::before { content: '·'; position: absolute; left: 0; font-weight: 700; }
+
+    h3.sub-head {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-body);
+      margin: 24px 0 12px;
+    }
+
+    /* ────────────────────────────────────────────
+       FOOTER
+    ──────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding: 16px 0 8px;
+      font-size: 11px;
+      color: var(--text-subtle);
+      font-family: monospace;
+    }
+
+    /* ────────────────────────────────────────────
+       RESPONSIVE
+    ──────────────────────────────────────────── */
+    @media (max-width: 800px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px 16px 60px; }
+      .hero-cards, .hero-pills, .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<header class="topbar">
+  <a href="#overview" class="topbar-brand">
+    <!-- KeyRound icon (Lucide) -->
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7.5" cy="15.5" r="5.5"/>
+        <path d="M21 2l-9.6 9.6"/>
+        <path d="M15.5 7.5l3 3L22 7l-3-3"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name">SecureKit</span>
+      <span class="brand-sub">Multi-Function Security Tool</span>
+    </div>
+  </a>
+
+  <div class="topbar-right">
+    <a href="https://securekit-whk3.onrender.com/" target="_blank" class="btn-open">
+      <!-- Lock icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      Open Tools
+    </a>
+    <div class="api-dot"><span></span>User Guide</div>
+  </div>
+</header>
+
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+
+  <a href="#overview" class="nav-home-btn">
+    <div class="nav-home-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
+    Home
+  </a>
+
+  <hr class="nav-divider" />
+
+  <!-- Milestone 1 -->
+  <div class="nav-group-label">
+    <div class="nav-group-dot" style="background:#3b82f6"></div>
+    <div>
+      <div>Milestone 1</div>
+      <div class="nav-group-sub">Web Security</div>
+    </div>
+  </div>
+
+  <div class="nav-items">
+    <a href="#strength" class="nav-link t-blue active">
+      <div class="nav-icon-wrap">
+        <!-- ScanEye -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><path d="M9 9l-1-1M15 9l1-1M15 15l1 1M9 15l-1 1"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-link-title">Analyze</div>
+        <div class="nav-link-sub">Password strength</div>
+      </div>
+    </a>
+    <a href="#generator" class="nav-link t-indigo">
+      <div class="nav-icon-wrap">
+        <!-- Zap -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-link-title">Generate</div>
+        <div class="nav-link-sub">Secure password</div>
+      </div>
+    </a>
+    <a href="#validator" class="nav-link t-violet">
+      <div class="nav-icon-wrap">
+        <!-- Shield -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-link-title">Validate</div>
+        <div class="nav-link-sub">Form inputs</div>
+      </div>
+    </a>
+  </div>
+
+  <hr class="nav-divider" />
+
+  <!-- Milestone 2 -->
+  <div class="nav-group-label">
+    <div class="nav-group-dot" style="background:#8b5cf6"></div>
+    <div>
+      <div>Milestone 2</div>
+      <div class="nav-group-sub">Network Security</div>
+    </div>
+  </div>
+
+  <div class="nav-items">
+    <a href="#portscanner" class="nav-link t-emerald">
+      <div class="nav-icon-wrap">
+        <!-- Radar -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-link-title">Scanner</div>
+        <div class="nav-link-sub">Port scanning</div>
+      </div>
+    </a>
+    <a href="#traffic" class="nav-link t-rose">
+      <div class="nav-icon-wrap">
+        <!-- Activity -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-link-title">Traffic</div>
+        <div class="nav-link-sub">Network analysis</div>
+      </div>
+    </a>
+  </div>
+
+  <hr class="nav-divider" />
+
+  <a href="#limits" class="nav-link" style="margin-top:2px;">
+    <div class="nav-icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;color:#94a3b8">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <div>
+      <div class="nav-link-title">Limitations</div>
+      <div class="nav-link-sub">Scope & ethics</div>
+    </div>
+  </a>
+  <a href="#troubleshoot" class="nav-link" style="margin-top:2px;">
+    <div class="nav-icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;color:#94a3b8">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+    </div>
+    <div>
+      <div class="nav-link-title">Troubleshooting</div>
+      <div class="nav-link-sub">Common issues</div>
+    </div>
+  </a>
+
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- HERO -->
+  <div id="overview" class="hero" style="scroll-margin-top: calc(52px + 16px)">
+
+    <div class="hero-top">
+      <!-- Shield icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+      </svg>
+      <span class="hero-top-label">Web Security Toolkit</span>
+    </div>
+
+    <div class="hero-center">
+      <!-- Large shield -->
+      <svg class="hero-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+      </svg>
+      <h1>Welcome to Your Security Toolkit</h1>
+      <p>Everything you need to protect your accounts and understand your network — all in one place. Use the sidebar to jump to any tool.</p>
+    </div>
+
+    <div class="hero-cards">
+      <div class="hero-card">
+        <div class="hero-card-head">
+          <div class="hero-card-icon icon-indigo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+            </svg>
+          </div>
+          <span class="hero-card-title">Security Tools</span>
+        </div>
+        <p>Protect your accounts with password management and input validation tools.</p>
+        <div class="hero-card-links">
+          <a href="#strength"  class="hero-card-link link-indigo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Check password strength
+          </a>
+          <a href="#generator" class="hero-card-link link-indigo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Generate secure passwords
+          </a>
+          <a href="#validator" class="hero-card-link link-indigo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Validate and sanitize inputs
+          </a>
+        </div>
+        <a href="#strength" class="btn-card btn-indigo">
+          Open Security Tools
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+
+      <div class="hero-card">
+        <div class="hero-card-head">
+          <div class="hero-card-icon icon-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+            </svg>
+          </div>
+          <span class="hero-card-title">Network Tools</span>
+        </div>
+        <p>Explore how networks work with educational scanning and traffic analysis tools.</p>
+        <div class="hero-card-links">
+          <a href="#portscanner" class="hero-card-link link-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+            Scan network ports
+          </a>
+          <a href="#traffic" class="hero-card-link link-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Analyze network traffic
+          </a>
+        </div>
+        <a href="#portscanner" class="btn-card btn-blue">
+          Open Network Tools
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-pills">
+      <div class="hero-pill">
+        <div class="hero-pill-icon pill-green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h4>Python Powered</h4>
+        <p>All processing runs on a FastAPI backend with real cryptographic functions.</p>
+      </div>
+      <div class="hero-pill">
+        <div class="hero-pill-icon pill-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h4>Lightning Fast</h4>
+        <p>Real-time results with a React frontend and Python backend.</p>
+      </div>
+      <div class="hero-pill">
+        <div class="hero-pill-icon pill-purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <h4>Easy to Learn</h4>
+        <p>Simple, friendly tools with clear explanations for every concept.</p>
+      </div>
+    </div>
+
+    <div class="screenshot-wrap" style="margin-top:28px;">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">SecureKit — Main Page</span>
+      </div>
+      <img src="screenshot/main page.png" alt="SecureKit main page" />
+    </div>
+
+    <div class="hero-about">
+      <div class="hero-about-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>About This Toolkit</span>
+      </div>
+      <p>This toolkit combines practical security tools with real network analysis capabilities. The security tools use real cryptographic functions (bcrypt, SHA-256) to help manage passwords and validate data. The network tools use Python's socket library and Scapy for real TCP port scanning and live packet capture — both require the local agent running with elevated privileges on your machine.</p>
+      <div style="font-size:10px;color:var(--text-subtle);font-family:monospace;margin-top:8px;">
+        Group 4 · MO-IT142 Security Script Programming · Terminal Assessment AY 2024-2025
+      </div>
+      <div class="tech-tags">
+        <span class="tech-tag">FastAPI</span>
+        <span class="tech-tag">React + TypeScript</span>
+        <span class="tech-tag">Python 3</span>
+        <span class="tech-tag">Scapy</span>
+        <span class="tech-tag">bcrypt</span>
+        <span class="tech-tag">Tailwind CSS</span>
+        <span class="tech-tag">Render</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── PASSWORD STRENGTH ASSESSOR ── -->
+  <div id="strength" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#2563eb;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Password Strength Assessor</h2>
+        <div class="section-sub">Evaluate how strong any password is — instantly</div>
+      </div>
+    </div>
+
+    <p>Type or paste any password and get an immediate strength rating with specific feedback on what to improve. The assessor checks against common password lists and dictionary words before scoring.</p>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Password Strength Analyzer</span>
+      </div>
+      <img src="screenshot/Password Strength Analyzer.png" alt="Password Strength Analyzer" />
+    </div>
+
+    <h3 class="sub-head">How to use it</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">1</div>
+        <div class="step-text">Navigate to <strong>Analyze</strong> under Milestone 1 in the sidebar.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">2</div>
+        <div class="step-text">Type your password into the input field.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">3</div>
+        <div class="step-text">Click <strong>Assess Password</strong>. Your result appears instantly below.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">4</div>
+        <div class="step-text">Read the feedback and improve your password as suggested.</div>
+      </li>
+    </ol>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Strong Password Result</span>
+      </div>
+      <img src="screenshot/Strong Password.png" alt="Strong password result" />
+    </div>
+
+    <h3 class="sub-head">Scoring breakdown</h3>
+    <table>
+      <thead><tr><th>Rating</th><th>Score</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-red">Weak</span></td>
+          <td>0 – 2 points</td>
+          <td>Fails most criteria, or is a known common / dictionary password</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-yellow">Moderate</span></td>
+          <td>3 – 4 points</td>
+          <td>Meets several but not all criteria</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">Strong</span></td>
+          <td>5 points</td>
+          <td>Passes all five criteria</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>One point is awarded for each of: <strong>12+ characters</strong>, <strong>uppercase letters</strong>, <strong>lowercase letters</strong>, <strong>digits</strong>, and <strong>special characters</strong>. Passwords found in a common-password list or containing a dictionary word are immediately rated <span class="badge badge-red">Weak</span>.</p>
+  </div>
+
+
+  <!-- ── PASSWORD GENERATOR ── -->
+  <div id="generator" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#4f46e5;box-shadow:0 4px 12px rgba(79,70,229,0.25);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Password Generator</h2>
+        <div class="section-sub">Create cryptographically secure passwords with one click</div>
+      </div>
+    </div>
+
+    <p>Generate a random, secure password between <strong>4 and 128 characters</strong>. Every result is guaranteed to contain uppercase, lowercase, digits, and special characters. SHA-256 and bcrypt hashes are included for developers who need to store credentials securely.</p>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Password Generator</span>
+      </div>
+      <img src="screenshot/Password Generator.png" alt="Password Generator" />
+    </div>
+
+    <h3 class="sub-head">How to use it</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;">1</div>
+        <div class="step-text">Go to <strong>Generate</strong> under Milestone 1 in the sidebar.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;">2</div>
+        <div class="step-text">Set your desired <strong>password length</strong>.
+          <span class="step-note">Default is 16. Valid range is 4–128 characters.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;">3</div>
+        <div class="step-text">Click <strong>Generate Password</strong>.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;">4</div>
+        <div class="step-text">Copy the password from the result card.
+          <span class="step-note">SHA-256 and bcrypt hashes are also shown — copy them if you need them for storage.</span>
+        </div>
+      </li>
+    </ol>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Save Generated Password</span>
+      </div>
+      <img src="screenshot/save generated password.png" alt="Save generated password" />
+    </div>
+
+    <div class="callout callout-success">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div>
+        <div class="callout-title">Privacy note</div>
+        <p>The server logs only the hashes — your plaintext password is never stored anywhere.</p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h4>SHA-256 Hash</h4>
+        <ul>
+          <li>Fixed 64-character hex string</li>
+          <li>Fast, commonly used for checksums</li>
+          <li>Not recommended alone for storing user passwords</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>bcrypt Hash</h4>
+        <ul>
+          <li>12-round work factor</li>
+          <li>Salted — every hash is unique</li>
+          <li>Industry standard for password storage</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── FORM INPUT VALIDATOR ── -->
+  <div id="validator" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#7c3aed;box-shadow:0 4px 12px rgba(124,58,237,0.25);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Form Input Validator</h2>
+        <div class="section-sub">Sanitize and validate web form inputs against XSS and SQL injection</div>
+      </div>
+    </div>
+
+    <p>Paste any text — a name, email, username, or message — and the validator runs it through a two-phase pipeline: <strong>sanitization first</strong> (stripping dangerous code), then <strong>format validation</strong> (checking field-specific rules).</p>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Form Input Validator</span>
+      </div>
+      <img src="screenshot/Form Input Validator.png" alt="Form Input Validator" />
+    </div>
+
+    <h3 class="sub-head">How to use it</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;">1</div>
+        <div class="step-text">Navigate to <strong>Validate</strong> under Milestone 1 in the sidebar.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;">2</div>
+        <div class="step-text">Select the <strong>field type</strong> from the dropdown: <code>name</code>, <code>email</code>, <code>username</code>, or <code>message</code>.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;">3</div>
+        <div class="step-text">Enter your text in the input box.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;">4</div>
+        <div class="step-text">Click <strong>Validate</strong>. The result shows whether the input is valid, the sanitized output, and any error details.</div>
+      </li>
+    </ol>
+
+    <h3 class="sub-head">Validation rules by field type</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Rules</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Full Name</strong></td>
+          <td>Min 2 chars · Letters, spaces, hyphens, apostrophes only · No digits</td>
+        </tr>
+        <tr>
+          <td><strong>Email</strong></td>
+          <td>No spaces · Must contain <code>@</code> · Must end with a valid domain suffix</td>
+        </tr>
+        <tr>
+          <td><strong>Username</strong></td>
+          <td>4–16 chars · Cannot start with a digit · Letters, digits, underscores only</td>
+        </tr>
+        <tr>
+          <td><strong>Message</strong></td>
+          <td>Non-empty · Max 250 chars · No script tags, suspicious attributes, or SQL keywords</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <div class="callout-title">SQL injection detection</div>
+        <p>If a SQL keyword or injection pattern is detected in any field type, the input is immediately blocked and flagged — it never reaches the format validator.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── PORT SCANNER ── -->
+  <div id="portscanner" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#059669;box-shadow:0 4px 12px rgba(5,150,105,0.25);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Port Scanner</h2>
+        <div class="section-sub">Scan TCP ports on any host and classify open services by risk</div>
+      </div>
+    </div>
+
+    <p>The Port Scanner performs a <strong>TCP connect scan</strong> — it attempts to open a connection to each port and reports whether it's open, closed, or filtered. Up to 100 ports run in parallel for fast results. Open ports are automatically classified by risk level.</p>
+
+    <h3 class="sub-head">Enabling the Local Agent</h3>
+    <p>Both MS2 tools (Port Scanner and Traffic Analyzer) require the <strong>local agent</strong> running on your machine. When you first open the tool, you will see the setup panel below. Click <strong>Enable Local Scanning</strong> to connect.</p>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Network Tools — Initial Setup Panel</span>
+      </div>
+      <img src="screenshot/network tools initial setup.png" alt="Network tools initial setup panel" />
+    </div>
+
+    <p>If the agent is not yet running on your machine, the panel will show a <em>Local Agent Not Detected</em> message. Start the agent first (see the testing guide), then click the refresh icon to recheck.</p>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Local Agent Not Running</span>
+      </div>
+      <img src="screenshot/local agent not running.png" alt="Local agent not running state" />
+    </div>
+
+    <h3 class="sub-head">Scanner in action</h3>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Port Scanner Demo</span>
+      </div>
+      <img src="screenshot/Port Scanner Demo.png" alt="Port Scanner Demo" />
+    </div>
+
+    <h3 class="sub-head">How to use it</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;">1</div>
+        <div class="step-text">Go to <strong>Scanner</strong> under Milestone 2 in the sidebar.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;">2</div>
+        <div class="step-text">Enter the <strong>target hostname or IP</strong>.
+          <span class="step-note">Only scan hosts you own or have explicit permission to test.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;">3</div>
+        <div class="step-text">Choose a <strong>scan mode</strong>:
+          <span class="step-note">
+            <strong>Common Ports</strong> — pre-defined list of well-known ports (fastest)<br>
+            <strong>Port Range</strong> — specify a start and end port number<br>
+            <strong>Custom</strong> — enter a comma-separated list of specific ports
+          </span>
+        </div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;">4</div>
+        <div class="step-text">Optionally adjust the <strong>timeout</strong> per port (0.2 – 5.0 s).</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;">5</div>
+        <div class="step-text">Click <strong>Start Scan</strong>. Results populate in the table as each port is checked.</div>
+      </li>
+    </ol>
+
+    <div class="two-col">
+      <div class="card">
+        <h4>Port Status</h4>
+        <ul>
+          <li><span class="badge badge-green">OPEN</span> — connection successful, service listening</li>
+          <li><span class="badge badge-blue">CLOSED</span> — connection refused or timed out</li>
+          <li><span class="badge badge-yellow">FILTERED</span> — network error, likely a firewall</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Risk Levels (open ports)</h4>
+        <ul>
+          <li><span class="badge badge-red">High</span> — Telnet 23, FTP 21, RDP 3389, SMB 445</li>
+          <li><span class="badge badge-yellow">Medium</span> — SSH 22, DNS 53, SMTP 25</li>
+          <li><span class="badge badge-green">Low</span> — HTTP 80, HTTPS 443</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-danger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <div class="callout-title">Authorized use only</div>
+        <p>Port scanning without permission is illegal in many jurisdictions. Only scan systems you own or have written authorization to test.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── TRAFFIC ANALYZER ── -->
+  <div id="traffic" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#e11d48;box-shadow:0 4px 12px rgba(225,29,72,0.25);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Traffic Analyzer</h2>
+        <div class="section-sub">Monitor live network packets in real time, with filtering</div>
+      </div>
+    </div>
+
+    <p>The Traffic Analyzer streams live packet data to your browser via <strong>Server-Sent Events</strong>. It requires the local agent running with elevated privileges on your machine — the same agent used by the Port Scanner.</p>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Traffic Analyzer Demo</span>
+      </div>
+      <img src="screenshot/Traffic Analyzer Demo.png" alt="Traffic Analyzer Demo" />
+    </div>
+
+    <h3 class="sub-head">How to use it</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">1</div>
+        <div class="step-text">Go to <strong>Traffic</strong> under Milestone 2 in the sidebar.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">2</div>
+        <div class="step-text">Set the <strong>capture duration</strong> (5–60 seconds).</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">3</div>
+        <div class="step-text">Optionally apply <strong>filters</strong> by protocol, port, source IP, or destination IP.
+          <span class="step-note">Leave all filters empty to capture all traffic.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">4</div>
+        <div class="step-text">Click <strong>Start Capture</strong>. Packets stream into the table in real time alongside cumulative statistics.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">5</div>
+        <div class="step-text">When the session ends, export the capture if needed.</div>
+      </li>
+    </ol>
+
+    <div class="screenshot-wrap">
+      <div class="screenshot-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="screenshot-label">Export PCAP</span>
+      </div>
+      <img src="screenshot/export PCAP.png" alt="Export PCAP" />
+    </div>
+
+    <h3 class="sub-head">What each packet shows</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Source / Destination</strong></td><td>IP address and port for both ends of the connection</td></tr>
+        <tr><td><strong>Protocol</strong></td><td>TCP, UDP, or ICMP</td></tr>
+        <tr><td><strong>TCP Flags</strong></td><td>SYN, ACK, FIN, RST — shows the connection state</td></tr>
+        <tr><td><strong>Service</strong></td><td>Human-readable name for well-known ports (HTTP, DNS, etc.)</td></tr>
+        <tr><td><strong>Size</strong></td><td>Packet size in bytes</td></tr>
+        <tr><td><strong>Suspicious</strong></td><td>Flagged if destination port matches known suspicious ports</td></tr>
+        <tr><td><strong>Source</strong></td><td>Network interface the packet was captured from</td></tr>
+        <tr><td><strong>Timestamp</strong></td><td>UTC time the packet was captured</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-info">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div>
+        <div class="callout-title">Live capture requires the local agent</div>
+        <p>Live packet capture requires root access that is unavailable on the cloud deployment. Run the local agent with <code>sudo</code> (Linux/macOS) or as Administrator (Windows) to enable real capture. Without elevated privileges the stream and snapshot buttons remain disabled.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── SCOPE & LIMITATIONS ── -->
+  <div id="limits" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#64748b;box-shadow:0 4px 12px rgba(100,116,139,0.2);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Scope &amp; Limitations</h2>
+        <div class="section-sub">What SecureKit is — and isn't</div>
+      </div>
+    </div>
+
+    <p>SecureKit is an <strong>educational tool</strong> for academic and controlled-environment use only. It is not an enterprise security platform.</p>
+
+    <div class="callout callout-danger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <div class="callout-title">Responsible Use</div>
+        <p>Always obtain explicit written permission before scanning any host or network you do not own. Unauthorized scanning or monitoring may violate local and international laws.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>Capability</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>TCP connect scanning</td><td><span class="badge badge-green">Supported</span></td></tr>
+        <tr><td>SYN / stealth scanning</td><td><span class="badge badge-red">Not supported</span></td></tr>
+        <tr><td>Live packet capture (admin environment)</td><td><span class="badge badge-green">Supported</span></td></tr>
+        <tr><td>Live packet capture (without sudo / Administrator)</td><td><span class="badge badge-red">Not available</span></td></tr>
+        <tr><td>Vulnerability exploitation</td><td><span class="badge badge-red">Not supported</span></td></tr>
+        <tr><td>Automated attack techniques</td><td><span class="badge badge-red">Not supported</span></td></tr>
+        <tr><td>Use on unauthorized networks</td><td><span class="badge badge-red">Not permitted</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── TROUBLESHOOTING ── -->
+  <div id="troubleshoot" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#0284c7;box-shadow:0 4px 12px rgba(2,132,199,0.25);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Troubleshooting</h2>
+        <div class="section-sub">Solutions to the most common issues</div>
+      </div>
+    </div>
+
+    <h3 class="sub-head">The first request is very slow or times out</h3>
+    <p>The app is hosted on Render's free tier, which spins down after inactivity. The first request after a cold start can take <strong>30–60 seconds</strong>. Wait for the response before retrying — clicking again only queues a second request behind the first.</p>
+
+    <h3 class="sub-head">"Local Agent Not Detected" after clicking Enable Local Scanning</h3>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">1</div>
+        <div class="step-text"><strong>Use Chrome or Edge.</strong> Firefox blocks connections from HTTPS pages to <code>http://127.0.0.1</code> — this is a browser security policy, not a bug. Firefox users will always see "Not Detected" and cannot use the local agent.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">2</div>
+        <div class="step-text"><strong>Brave users:</strong> Brave Shields blocks the agent probe even in normal mode. Click the Brave lion icon in the address bar, toggle Shields off for <code>securekit-whk3.onrender.com</code>, then reload.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">3</div>
+        <div class="step-text"><strong>Confirm the agent is running.</strong> The terminal window running the agent must stay open. If it closed, re-run <code>StartAgent.sh</code> / <code>StartAgent.bat</code>.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">4</div>
+        <div class="step-text"><strong>Verify the agent is reachable:</strong>
+          <span class="step-note"><code>curl http://127.0.0.1:8765/health</code> — a JSON response means it is running. "Connection refused" means the agent stopped or failed to bind.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">5</div>
+        <div class="step-text"><strong>Check for a port conflict</strong> (another process already using port 8765):
+          <span class="step-note">Linux/macOS: <code>ss -tlnp | grep 8765</code> &nbsp;·&nbsp; Windows: <code>netstat -ano | findstr :8765</code><br>If something else is on 8765, stop it and restart the agent.</span>
+        </div>
+      </li>
+    </ol>
+
+    <h3 class="sub-head">Agent banner shows "Scapy: not available"</h3>
+    <p>The most common cause is running the agent from a partial copy of the repo — one that has <code>local_agent.py</code> but is missing the <code>src/</code> directory. The agent requires <code>src/web_security_tool/</code> to be present alongside it.</p>
+    <div class="callout callout-warn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <div class="callout-title">Download the full repository</div>
+        <p>Use the "Download Necessary Files" button in the setup panel to get the complete repo ZIP. Downloading only <code>local_agent.py</code> or the script files is not enough — the <code>src/</code> package tree must be present next to them.</p>
+      </div>
+    </div>
+
+    <h3 class="sub-head">Stream and Snapshot buttons are grayed out even though the agent is connected</h3>
+    <p>The agent connected successfully but is running without elevated privileges — or Scapy failed to import. The panel will show <em>"Scapy unavailable — restart agent with sudo for live capture."</em></p>
+    <ul style="margin:10px 0 0 20px;line-height:2;">
+      <li><strong>Linux / macOS:</strong> stop the agent and re-run <code>StartAgent.sh</code>. The script prompts for your <code>sudo</code> password automatically.</li>
+      <li><strong>Windows:</strong> right-click <code>StartAgent.bat</code> and choose <strong>Run as Administrator</strong>.</li>
+      <li>Do <em>not</em> run <code>sudo python3 local_agent.py</code> directly — the system Python does not have the venv packages and Scapy will fail to import even with root.</li>
+    </ul>
+
+    <h3 class="sub-head">CORS error visible in browser DevTools</h3>
+    <p>The agent's <code>allow_origins</code> list may not include <code>https://securekit-whk3.onrender.com</code>. Open <code>local_agent.py</code> in a text editor, find the <code>allow_origins</code> list, verify the URL is present, and restart the agent. This usually happens when using an older copy of the file downloaded before this was fixed.</p>
+
+    <h3 class="sub-head">Download buttons in the setup panel show an error</h3>
+    <p>The Render backend may be cold-starting. Wait 30–60 seconds and try again. Alternatively, download the files directly from the GitHub repository using the link in the setup panel.</p>
+  </div>
+
+
+  <div class="footer">
+    SecureKit · Group 4 · MO-IT142 Security Script Programming · Terminal Assessment AY 2024-2025
+  </div>
+
+</main>
+
+<script>
+  // Sync active sidebar link on scroll
+  const sections = document.querySelectorAll('[id]');
+  const links = document.querySelectorAll('.nav-link');
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => io.observe(s));
+</script>
+</body>
+</html>
