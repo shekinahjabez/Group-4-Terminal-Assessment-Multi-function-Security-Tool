@@ -48,8 +48,7 @@ function DlBtn({ label, url, accent = "#4f46e5" }: { label: string; url: string;
       a.click();
       URL.revokeObjectURL(a.href);
       setStatus("idle");
-    } catch (err) {
-      console.error("Download failed:", err);
+    } catch {
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     }

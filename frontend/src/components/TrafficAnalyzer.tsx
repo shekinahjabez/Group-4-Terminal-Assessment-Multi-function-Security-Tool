@@ -208,7 +208,7 @@ export function TrafficAnalyzer() {
         if (data.error) { setError(String(data.error)); stopStream(); return; }
         if (Array.isArray(data.packets)) addPackets(data.packets);
         else if (data.src || data.src_ip) addPackets([data]);
-      } catch (err) { console.error("Malformed SSE:", err); }
+      } catch { /* ignore malformed SSE frame */ }
     };
 
     es.onerror = () => {
@@ -303,9 +303,9 @@ export function TrafficAnalyzer() {
         <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", margin: 0 }}>Traffic Analyzer</h2>
         <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
           {agent.state === "running-live"
-            ? "🟢 Live capture — your local NIC (via local agent)"
+            ? "Live capture active — your local NIC (via local agent)"
             : agent.state === "running-no-scapy"
-            ? "🟡 Local agent connected — port scan only"
+            ? "Local agent connected — simulation mode (no live capture)"
             : "Live packet capture via SSE stream (Python backend)"}
         </p>
       </div>
