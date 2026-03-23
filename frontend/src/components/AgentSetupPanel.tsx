@@ -25,38 +25,31 @@ interface Props {
 const REPO_ZIP_URL = "https://github.com/shekinahjabez/Group-4-Terminal-Assessment-Multi-function-Security-Tool/archive/refs/heads/main.zip";
 
 // ── Download button ───────────────────────────────────────────────────────────
+// NOTE: fetch() cannot be used for cross-origin file downloads from GitHub.
+// codeload.github.com (the redirect target) sets Access-Control-Allow-Origin to
+// an internal GitHub CDN origin, not a wildcard. Any fetch() call from a browser
+// on a different origin (including our Render frontend) is blocked by CORS before
+// the response body is readable. The correct approach is a direct anchor navigation:
+// browser navigations are not CORS-governed, and the server's
+// Content-Disposition: attachment header forces the save dialog without needing
+// the `download` attribute (which is ignored on cross-origin anchors anyway).
 function DlBtn({ label, url, accent = "#4f46e5", fullWidth = false }: { label: string; url: string; accent?: string; fullWidth?: boolean }) {
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-
-  const handleDownload = async () => {
-    setStatus("loading");
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = label;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      setStatus("idle");
-    } catch {
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
-    }
+  const handleDownload = () => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
   };
 
-  const isLoading = status === "loading";
-  const isError   = status === "error";
-
   return (
-    <button onClick={handleDownload} disabled={isLoading}
-      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", width: fullWidth ? "100%" : undefined, backgroundColor: isError ? "#fef2f2" : "#fff", border: `2px solid ${isError ? "#fca5a5" : accent + "44"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: isError ? "#dc2626" : accent, cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1 }}
-      onMouseEnter={e => { if (!isLoading && !isError) e.currentTarget.style.backgroundColor = `${accent}11`; }}
-      onMouseLeave={e => { if (!isError) e.currentTarget.style.backgroundColor = "#fff"; }}
+    <button onClick={handleDownload}
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", width: fullWidth ? "100%" : undefined, backgroundColor: "#fff", border: `2px solid ${accent + "44"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: accent, cursor: "pointer" }}
+      onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${accent}11`; }}
+      onMouseLeave={e => { e.currentTarget.style.backgroundColor = "#fff"; }}
     >
       <Download style={{ width: 13, height: 13 }} />
-      {isLoading ? "Downloading…" : isError ? "Download failed — try again" : label}
+      {label}
     </button>
   );
 }
