@@ -222,7 +222,8 @@ if __name__ == "__main__":
     print("\n  SecureKit Local Agent v" + _AGENT_VER)
     print("  " + "─" * 50)
     print(f"  OS:         {platform.system()} {platform.release()}")
-    print(f"  Privileged: {'YES — live capture available' if _PRIVILEGED else 'NO — port scanner only'}")
+    _live_ready = _PRIVILEGED and _ENGINE_AVAILABLE
+    print(f"  Privileged: {'YES' if _PRIVILEGED else 'NO'}{' — live capture available' if _live_ready else ' — port scanner only'}")
     print(f"  Scapy:      {'available' if _ENGINE_AVAILABLE else 'not available'}")
     print("  " + "─" * 50)
     print("  Listening on http://127.0.0.1:8765")
