@@ -104,9 +104,9 @@ export function PortScanner() {
 
   const handleScan = async () => {
     if (!host.trim()) { setError("Please enter a target host or IP."); return; }
+    if (!isAgentConnected) { setError("Start the local agent to run a port scan."); return; }
     setLoading(true); setError(null); setResult(null);
     try {
-      if (!isAgentConnected && !API) throw new Error("VITE_API_BASE_URL is not set.");
       const r = await fetch(`${SCAN_BASE}${SCAN_PATH}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,7 +140,6 @@ export function PortScanner() {
           agentUrl={agent.agentUrl}
           toolName="Port Scanner"
           onGrant={agent.grantPermission}
-          onDeny={agent.denyPermission}
           onReset={agent.resetPermission}
           onRecheck={agent.recheck}
           onSetUrl={agent.setAgentUrl}
@@ -214,10 +213,11 @@ export function PortScanner() {
           </div>
         </div>
 
-        <button onClick={handleScan} disabled={loading}
-          style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", cursor: loading ? "not-allowed" : "pointer", backgroundColor: loading ? "#cbd5e1" : "#7c3aed", color: "#fff", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-          onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = "#6d28d9"; }}
-          onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = loading ? "#cbd5e1" : "#7c3aed"; }}
+        <button onClick={handleScan} disabled={loading || !isAgentConnected}
+          title={!isAgentConnected ? "Start the local agent to run a port scan" : undefined}
+          style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", cursor: (loading || !isAgentConnected) ? "not-allowed" : "pointer", backgroundColor: (loading || !isAgentConnected) ? "#cbd5e1" : "#7c3aed", color: "#fff", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: !isAgentConnected ? 0.6 : 1 }}
+          onMouseEnter={e => { if (!loading && isAgentConnected) e.currentTarget.style.backgroundColor = "#6d28d9"; }}
+          onMouseLeave={e => { if (!loading && isAgentConnected) e.currentTarget.style.backgroundColor = "#7c3aed"; }}
         >
           {loading
             ? <><span style={{ width: 16, height: 16, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />Scanning...</>

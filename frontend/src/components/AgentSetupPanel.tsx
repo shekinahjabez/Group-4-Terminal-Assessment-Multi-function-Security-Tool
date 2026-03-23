@@ -6,7 +6,7 @@
  * code changes needed.
  */
 import { useState } from "react";
-import { Terminal, RefreshCw, ChevronRight, Link, Download, Monitor } from "lucide-react";
+import { Terminal, RefreshCw, Link, Download, Monitor } from "lucide-react";
 import type { AgentState, AgentHealthPayload } from "../hooks/useLocalAgent";
 import { DEFAULT_AGENT_URL } from "../hooks/useLocalAgent";
 
@@ -16,7 +16,6 @@ interface Props {
   agentUrl:   string;
   toolName:   "Port Scanner" | "Traffic Analyzer";
   onGrant:    () => void;
-  onDeny:     () => void;
   onReset:    () => void;
   onRecheck:  (url?: string) => void;
   onSetUrl:   (url: string) => void;
@@ -85,7 +84,7 @@ function DownloadPanel() {
             🪟 Windows
           </p>
           <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> — it creates a virtualenv, installs dependencies, and starts the agent. Open Chrome or Edge and visit <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>https://securekit.onrender.com</code> or <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://localhost:5173</code>.
+            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> — it creates a virtualenv, installs dependencies, and starts the agent. Open Chrome or Edge and visit <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>https://securekit-whk3.onrender.com</code> or <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://localhost:5173</code>.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
             <DlBtn label="StartAgent.bat" url={DOWNLOADS.windows.url} accent="#7c3aed" />
@@ -186,7 +185,7 @@ function AgentUrlInput({ agentUrl, onSetUrl, onRecheck }: {
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
-export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, onDeny, onReset, onRecheck, onSetUrl }: Props) {
+export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, onReset, onRecheck, onSetUrl }: Props) {
 
   // ── Permission pending ────────────────────────────────────────────────────
   if (state === "permission-pending") {
@@ -207,7 +206,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
         <DownloadPanel />
         <AgentUrlInput agentUrl={agentUrl} onSetUrl={onSetUrl} onRecheck={onRecheck} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
           <button onClick={onGrant}
             style={{ backgroundColor: "#4f46e5", color: "#fff", border: "none", borderRadius: 10, padding: "11px 16px", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#4338ca")}
@@ -216,33 +215,53 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
             <Terminal style={{ width: 14, height: 14 }} />
             Enable Local Scanning
           </button>
-          <button onClick={onDeny}
-            style={{ backgroundColor: "#fff", border: "2px solid #c7d2fe", borderRadius: 10, padding: "11px 16px", fontWeight: 600, fontSize: 12, color: "#4338ca", cursor: "pointer" }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#eef2ff")}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#fff")}
-          >
-            Use Simulation Instead
-          </button>
         </div>
       </div>
     );
   }
 
-  // ── Permission denied ─────────────────────────────────────────────────────
+  // ── Permission denied — redirect to setup; simulation is not a valid path ─
   if (state === "permission-denied") {
     return (
-      <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <p style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 2px" }}>Using simulation mode</p>
-          <p style={{ fontSize: 10, color: "#94a3b8", margin: 0 }}>{toolName} is running in demonstration mode with simulated data.</p>
+      <div style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Terminal style={{ width: 16, height: 16, color: "#fff" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#78350f", margin: "0 0 2px" }}>Local Agent Required</p>
+              <p style={{ fontSize: 11, color: "#92400e", margin: 0 }}>
+                {toolName} requires the local agent to function. Please follow the setup steps below.
+              </p>
+            </div>
+          </div>
         </div>
-        <button onClick={onReset}
-          style={{ fontSize: 10, color: "#64748b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", whiteSpace: "nowrap", fontWeight: 600 }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#4f46e5")}
-          onMouseLeave={e => (e.currentTarget.style.color = "#64748b")}
-        >
-          Change
-        </button>
+
+        {/* Browser compatibility note */}
+        <div style={{ backgroundColor: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#713f12", margin: "0 0 2px" }}>
+            Browser requirement: Chrome or Edge
+          </p>
+          <p style={{ fontSize: 10, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
+            Live agent features require <strong>Chrome</strong> or <strong>Edge</strong> when using the hosted site at{" "}
+            <code style={{ fontFamily: "monospace", backgroundColor: "#fde68a", padding: "1px 3px", borderRadius: 2 }}>securekit-whk3.onrender.com</code>.
+            Firefox blocks local connections from HTTPS pages.
+          </p>
+        </div>
+
+        <DownloadPanel />
+        <AgentUrlInput agentUrl={agentUrl} onSetUrl={onSetUrl} onRecheck={onRecheck} />
+
+        <div style={{ borderTop: "1px solid #fcd34d", paddingTop: 12 }}>
+          <button onClick={onReset}
+            style={{ fontSize: 11, color: "#78350f", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#4f46e5")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#78350f")}
+          >
+            <RefreshCw style={{ width: 12, height: 12 }} /> Check again
+          </button>
+        </div>
       </div>
     );
   }
@@ -295,7 +314,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
           </p>
           <p style={{ fontSize: 10, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
             Live agent features require <strong>Chrome</strong> or <strong>Edge</strong> when using the hosted site at{" "}
-            <code style={{ fontFamily: "monospace", backgroundColor: "#fde68a", padding: "1px 3px", borderRadius: 2 }}>securekit.onrender.com</code>.
+            <code style={{ fontFamily: "monospace", backgroundColor: "#fde68a", padding: "1px 3px", borderRadius: 2 }}>securekit-whk3.onrender.com</code>.
             Firefox blocks local connections from HTTPS pages.
             The <strong>Snapshot</strong> button works in all browsers without the agent.
           </p>
@@ -304,12 +323,13 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
         <DownloadPanel />
         <AgentUrlInput agentUrl={agentUrl} onSetUrl={onSetUrl} onRecheck={onRecheck} />
 
-        <div style={{ borderTop: "1px solid #fcd34d", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <p style={{ fontSize: 10, color: "#92400e", margin: 0 }}>Don't want to install the agent?</p>
-          <button onClick={onDeny}
-            style={{ fontSize: 10, color: "#78350f", background: "none", border: "none", cursor: "pointer", fontWeight: 600, textDecoration: "underline", display: "flex", alignItems: "center", gap: 4 }}
+        <div style={{ borderTop: "1px solid #fcd34d", paddingTop: 12 }}>
+          <button onClick={() => onRecheck()} title="Check again"
+            style={{ fontSize: 11, color: "#78350f", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#4f46e5")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#78350f")}
           >
-            Use simulation instead <ChevronRight style={{ width: 12, height: 12 }} />
+            <RefreshCw style={{ width: 12, height: 12 }} /> Check again
           </button>
         </div>
       </div>

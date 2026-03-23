@@ -183,8 +183,8 @@ export function TrafficAnalyzer() {
   }, []);
 
   const startStream = useCallback(() => {
-    if (!isAgentConnected && !API) {
-      setError("No API available. Start the local agent or check your connection.");
+    if (!isAgentConnected) {
+      setError("Start the local agent to enable live streaming.");
       return;
     }
     stopStream();
@@ -218,8 +218,8 @@ export function TrafficAnalyzer() {
   }, [isAgentConnected, STREAM_BASE, streamPath, duration, filterProto, filterIP, filterSrc, filterDst, addPackets, stopStream]);
 
   const takeSnapshot = async () => {
-    if (!isAgentConnected && !API) {
-      setError("No API available. Start the local agent or check your connection.");
+    if (!isAgentConnected) {
+      setError("Start the local agent to use Snapshot.");
       return;
     }
     setError(null);
@@ -228,35 +228,24 @@ export function TrafficAnalyzer() {
     packetId.current = 0;
 
     try {
-      if (isAgentConnected) {
-        stopStream();
-        setRunning(true);
-        const params = new URLSearchParams({ duration: "5" });
-        if (filterProto) params.set("protocol", filterProto);
-        if (filterIP)    params.set("ip",       filterIP);
-        if (filterSrc)   params.set("src_ip",   filterSrc);
-        if (filterDst)   params.set("dst_ip",   filterDst);
-        const es = new EventSource(`${agent.agentUrl}/traffic/stream?${params}`);
-        esRef.current = es;
-        es.onmessage = (e) => {
-          try {
-            const data = JSON.parse(e.data);
-            if (data.done) { stopStream(); return; }
-            if (Array.isArray(data.packets)) addPackets(data.packets);
-            else if (data.src || data.src_ip) addPackets([data]);
-          } catch { /* ignore */ }
-        };
-        es.onerror = () => stopStream();
-      } else {
-        const r = await fetch(`${API}/api/traffic/snapshot`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ count: 20, protocol: filterProto, ip: filterIP, src_ip: filterSrc, dst_ip: filterDst }),
-        });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data?.detail ?? `Error ${r.status}`);
-        const list: Record<string, unknown>[] = Array.isArray(data) ? data : (data.packets ?? []);
-        addPackets(list);
-      }
+      stopStream();
+      setRunning(true);
+      const params = new URLSearchParams({ duration: "5" });
+      if (filterProto) params.set("protocol", filterProto);
+      if (filterIP)    params.set("ip",       filterIP);
+      if (filterSrc)   params.set("src_ip",   filterSrc);
+      if (filterDst)   params.set("dst_ip",   filterDst);
+      const es = new EventSource(`${agent.agentUrl}/traffic/stream?${params}`);
+      esRef.current = es;
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.done) { stopStream(); return; }
+          if (Array.isArray(data.packets)) addPackets(data.packets);
+          else if (data.src || data.src_ip) addPackets([data]);
+        } catch { /* ignore */ }
+      };
+      es.onerror = () => stopStream();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Snapshot failed.");
     }
@@ -290,7 +279,6 @@ export function TrafficAnalyzer() {
     agentUrl:  agent.agentUrl,
     toolName:  "Traffic Analyzer" as const,
     onGrant:   agent.grantPermission,
-    onDeny:    agent.denyPermission,
     onReset:   agent.resetPermission,
     onRecheck: agent.recheck,
     onSetUrl:  agent.setAgentUrl,
@@ -368,8 +356,9 @@ export function TrafficAnalyzer() {
               style={{ flex: 1, backgroundColor: "#334155", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
             ><Square style={{ width: 14, height: 14 }} />Stop</button>
           )}
-          <button onClick={takeSnapshot} disabled={running}
-            style={{ backgroundColor: "#fff", color: "#e11d48", border: "2px solid #fecdd3", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: running ? "not-allowed" : "pointer", opacity: running ? 0.4 : 1, display: "flex", alignItems: "center", gap: 6 }}
+          <button onClick={takeSnapshot} disabled={running || !isAgentConnected}
+            title={!isAgentConnected ? "Start the local agent to use Snapshot" : undefined}
+            style={{ backgroundColor: "#fff", color: isAgentConnected ? "#e11d48" : "#94a3b8", border: `2px solid ${isAgentConnected ? "#fecdd3" : "#e2e8f0"}`, borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: (running || !isAgentConnected) ? "not-allowed" : "pointer", opacity: (running || !isAgentConnected) ? 0.4 : 1, display: "flex", alignItems: "center", gap: 6 }}
           ><RefreshCw style={{ width: 13, height: 13 }} />Snapshot</button>
           <button onClick={clearAll}
             style={{ backgroundColor: "#fff", color: "#64748b", border: "2px solid #e2e8f0", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
@@ -458,7 +447,7 @@ export function TrafficAnalyzer() {
           <div style={{ backgroundColor: "#fff1f2", border: "2px solid #fecdd3", borderRadius: 12, padding: 24, textAlign: "center" }}>
             <Activity style={{ width: 32, height: 32, color: "#fb7185", margin: "0 auto 8px" }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: "#9f1239", margin: "0 0 4px" }}>No traffic captured yet</p>
-            <p style={{ fontSize: 12, color: "#fb7185", margin: 0 }}>Press <strong>Start Live Stream</strong> to begin, or <strong>Snapshot</strong> for a quick 20-packet sample.</p>
+            <p style={{ fontSize: 12, color: "#fb7185", margin: 0 }}>Connect the local agent and press <strong>Start Live Stream</strong> to begin, or <strong>Snapshot</strong> for a quick 5-second capture.</p>
           </div>
         )
       )}
