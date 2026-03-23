@@ -21,18 +21,11 @@ interface Props {
   onSetUrl:   (url: string) => void;
 }
 
-// ── File download links — point to your Render static files or GitHub raw ────
-const GITHUB_RAW = "https://raw.githubusercontent.com/shekinahjabez/Group-4-Terminal-Assessment-Multi-function-Security-Tool/main";
-
-const DOWNLOADS = {
-  agent:   { label: "local_agent.py",           url: `${GITHUB_RAW}/local_agent.py` },
-  check:   { label: "setup_check.py",           url: `${GITHUB_RAW}/setup_check.py` },
-  windows: { label: "StartAgent.bat",  url: `${GITHUB_RAW}/StartAgent.bat` },
-  mac:     { label: "StartAgent.sh", url: `${GITHUB_RAW}/StartAgent.sh` },
-};
+// ── Repo ZIP download ─────────────────────────────────────────────────────────
+const REPO_ZIP_URL = "https://github.com/shekinahjabez/Group-4-Terminal-Assessment-Multi-function-Security-Tool/archive/refs/heads/main.zip";
 
 // ── Download button ───────────────────────────────────────────────────────────
-function DlBtn({ label, url, accent = "#4f46e5" }: { label: string; url: string; accent?: string }) {
+function DlBtn({ label, url, accent = "#4f46e5", fullWidth = false }: { label: string; url: string; accent?: string; fullWidth?: boolean }) {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 
   const handleDownload = async () => {
@@ -58,12 +51,12 @@ function DlBtn({ label, url, accent = "#4f46e5" }: { label: string; url: string;
 
   return (
     <button onClick={handleDownload} disabled={isLoading}
-      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", backgroundColor: isError ? "#fef2f2" : "#fff", border: `2px solid ${isError ? "#fca5a5" : accent + "22"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: isError ? "#dc2626" : accent, cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1 }}
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", width: fullWidth ? "100%" : undefined, backgroundColor: isError ? "#fef2f2" : "#fff", border: `2px solid ${isError ? "#fca5a5" : accent + "44"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: isError ? "#dc2626" : accent, cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1 }}
       onMouseEnter={e => { if (!isLoading && !isError) e.currentTarget.style.backgroundColor = `${accent}11`; }}
       onMouseLeave={e => { if (!isError) e.currentTarget.style.backgroundColor = "#fff"; }}
     >
-      <Download style={{ width: 12, height: 12 }} />
-      {isLoading ? "Downloading…" : isError ? "Download failed" : label}
+      <Download style={{ width: 13, height: 13 }} />
+      {isLoading ? "Downloading…" : isError ? "Download failed — try again" : label}
     </button>
   );
 }
@@ -77,43 +70,30 @@ function DownloadPanel() {
         <p style={{ fontSize: 11, fontWeight: 700, color: "#4c1d95", margin: 0 }}>Step 1 — Download & Run on Your Machine</p>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {/* Windows */}
-        <div style={{ backgroundColor: "#fff", border: "1px solid #e9d5ff", borderRadius: 8, padding: 10 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", margin: "0 0 6px", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>
-            🪟 Windows
-          </p>
-          <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> — it creates a virtualenv, installs dependencies, and starts the agent. Open Chrome or Edge and visit <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>https://securekit-whk3.onrender.com</code> or <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://localhost:5173</code>.
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
-            <DlBtn label="StartAgent.bat" url={DOWNLOADS.windows.url} accent="#7c3aed" />
-            <DlBtn label="local_agent.py"           url={DOWNLOADS.agent.url}   accent="#7c3aed" />
-            <DlBtn label="setup_check.py"           url={DOWNLOADS.check.url}   accent="#7c3aed" />
-          </div>
-        </div>
+      <p style={{ fontSize: 10, color: "#7c3aed", margin: 0, lineHeight: 1.6 }}>
+        Download the full repository ZIP — it contains everything the agent needs (<code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code>, <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.sh</code>, <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>local_agent.py</code>, and the required <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>src/</code> package). Extract the ZIP, then:
+      </p>
 
-        {/* Mac / Linux */}
+      <DlBtn label="Download Necessary Files (.zip)" url={REPO_ZIP_URL} accent="#7c3aed" fullWidth />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ backgroundColor: "#fff", border: "1px solid #e9d5ff", borderRadius: 8, padding: 10 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", margin: "0 0 6px", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>
-            Mac / Linux
+          <p style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", margin: "0 0 4px", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>🪟 Windows</p>
+          <p style={{ fontSize: 10, color: "#7c3aed", margin: 0, lineHeight: 1.5 }}>
+            Double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> inside the extracted folder. For live packet capture, right-click and choose <strong>Run as Administrator</strong>.
           </p>
-          <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Download all files into the same folder, open Terminal in that folder, then run:
-            <code style={{ display: "block", marginTop: 4, backgroundColor: "#0f172a", color: "#34d399", fontSize: 10, padding: "6px 10px", borderRadius: 6, fontFamily: "monospace" }}>
-              chmod +x StartAgent.sh && ./StartAgent.sh
-            </code>
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
-            <DlBtn label="StartAgent.sh" url={DOWNLOADS.mac.url}   accent="#7c3aed" />
-            <DlBtn label="local_agent.py"            url={DOWNLOADS.agent.url} accent="#7c3aed" />
-            <DlBtn label="setup_check.py"            url={DOWNLOADS.check.url} accent="#7c3aed" />
-          </div>
+        </div>
+        <div style={{ backgroundColor: "#fff", border: "1px solid #e9d5ff", borderRadius: 8, padding: 10 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: "#6d28d9", margin: "0 0 4px", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>🍎 Mac / 🐧 Linux</p>
+          <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 4px", lineHeight: 1.5 }}>Open Terminal in the extracted folder and run:</p>
+          <code style={{ display: "block", backgroundColor: "#0f172a", color: "#34d399", fontSize: 10, padding: "6px 10px", borderRadius: 6, fontFamily: "monospace" }}>
+            chmod +x StartAgent.sh && ./StartAgent.sh
+          </code>
         </div>
       </div>
 
       <p style={{ fontSize: 10, color: "#7c3aed", margin: 0, lineHeight: 1.5 }}>
-        Once the script is running, the agent listens at <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://127.0.0.1:8765</code> — no ngrok required. Use Chrome or Edge for the hosted site (Firefox blocks local connections from HTTPS pages).
+        Once running, the agent listens at <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://127.0.0.1:8765</code> — no ngrok required. Use Chrome or Edge (Firefox blocks local connections from HTTPS pages).
       </p>
     </div>
   );
