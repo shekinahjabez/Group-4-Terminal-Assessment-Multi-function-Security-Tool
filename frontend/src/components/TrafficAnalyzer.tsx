@@ -138,7 +138,7 @@ function exportPCAP(packets: Packet[]) {
 export function TrafficAnalyzer() {
   // ── Agent hook ────────────────────────────────────────────────────────────
   const agent            = useLocalAgent();
-  const isAgentConnected = agent.state === "running-live" || agent.state === "running-no-scapy";
+  const isAgentConnected = agent.state === "running-live";
   const STREAM_BASE      = isAgentConnected ? agent.agentUrl : API;
   const streamPath       = isAgentConnected ? "/traffic/stream" : "/api/traffic/stream";
 
@@ -263,15 +263,15 @@ export function TrafficAnalyzer() {
   useEffect(() => () => { esRef.current?.close(); }, []);
 
   useEffect(() => {
-    // packets.length intentionally omitted from deps — we only want this to fire on filter or
-    // running changes, not on every packet arrival.
+    // packets.length and running intentionally omitted from deps — we only want this to fire when
+    // a filter input changes, not on every packet arrival or when streaming stops.
     if (packets.length > 0 && !running) {
       setPackets([]);
       setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
       packetId.current = 0;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterProto, filterIP, filterSrc, filterDst, running]);
+  }, [filterProto, filterIP, filterSrc, filterDst]);
 
   // Shared panel props
   const panelProps = {
@@ -293,7 +293,7 @@ export function TrafficAnalyzer() {
           {agent.state === "running-live"
             ? "Live capture active — your local NIC (via local agent)"
             : agent.state === "running-no-scapy"
-            ? "Local agent connected — simulation mode (no live capture)"
+            ? "Scapy unavailable — restart agent with sudo for live capture"
             : "Live packet capture via SSE stream (Python backend)"}
         </p>
       </div>
