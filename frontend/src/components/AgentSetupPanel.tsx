@@ -6,6 +6,7 @@
  * code changes needed.
  */
 import { useState } from "react";
+import JSZip from "jszip";
 import { Terminal, RefreshCw, Link, Download, Monitor } from "lucide-react";
 import type { AgentState, AgentHealthPayload } from "../hooks/useLocalAgent";
 import { DEFAULT_AGENT_URL } from "../hooks/useLocalAgent";
@@ -21,23 +22,49 @@ interface Props {
   onSetUrl:   (url: string) => void;
 }
 
-// ── Repo ZIP download ─────────────────────────────────────────────────────────
-const REPO_ZIP_URL = "https://github.com/shekinahjabez/Group-4-Terminal-Assessment-Multi-function-Security-Tool/archive/refs/heads/main.zip";
+// ── Files to bundle into the client-side ZIP ──────────────────────────────────
+// raw.githubusercontent.com sends Access-Control-Allow-Origin: * so fetch()
+// works reliably from any origin — unlike the GitHub archive ZIP endpoint
+// (codeload.github.com) which restricts CORS to internal GitHub origins.
+const RAW = "https://raw.githubusercontent.com/shekinahjabez/Group-4-Terminal-Assessment-Multi-function-Security-Tool/main";
+
+const AGENT_FILES: { path: string; dest: string }[] = [
+  { path: `${RAW}/local_agent.py`,                                                          dest: "local_agent.py" },
+  { path: `${RAW}/requirements.txt`,                                                        dest: "requirements.txt" },
+  { path: `${RAW}/setup_check.py`,                                                          dest: "setup_check.py" },
+  { path: `${RAW}/StartAgent.bat`,                                                          dest: "StartAgent.bat" },
+  { path: `${RAW}/StartAgent.sh`,                                                           dest: "StartAgent.sh" },
+  { path: `${RAW}/src/web_security_tool/__init__.py`,                                       dest: "src/web_security_tool/__init__.py" },
+  { path: `${RAW}/src/web_security_tool/port_scanner_api.py`,                              dest: "src/web_security_tool/port_scanner_api.py" },
+  { path: `${RAW}/src/web_security_tool/traffic_analyzer_api.py`,                          dest: "src/web_security_tool/traffic_analyzer_api.py" },
+  { path: `${RAW}/src/web_security_tool/utils.py`,                                         dest: "src/web_security_tool/utils.py" },
+  { path: `${RAW}/src/web_security_tool/App/NetworkTrafficAnalyzer/core/__init__.py`,      dest: "src/web_security_tool/App/NetworkTrafficAnalyzer/core/__init__.py" },
+  { path: `${RAW}/src/web_security_tool/App/NetworkTrafficAnalyzer/core/sniffer.py`,       dest: "src/web_security_tool/App/NetworkTrafficAnalyzer/core/sniffer.py" },
+];
 
 // ── Download button ───────────────────────────────────────────────────────────
-function DlBtn({ label, url, accent = "#4f46e5", fullWidth = false }: { label: string; url: string; accent?: string; fullWidth?: boolean }) {
+// Fetches each agent file individually from raw.githubusercontent.com (CORS: *),
+// bundles them into a ZIP client-side via JSZip, then triggers a single download.
+function DlBtn({ label, accent = "#4f46e5", fullWidth = false }: { label: string; accent?: string; fullWidth?: boolean }) {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const isLoading = status === "loading";
+  const isError   = status === "error";
 
   const handleDownload = async () => {
     setStatus("loading");
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const blob = await res.blob();
+      const results = await Promise.all(
+        AGENT_FILES.map(f => fetch(f.path).then(r => { if (!r.ok) throw new Error(`${r.status} ${f.path}`); return r.arrayBuffer(); }))
+      );
+      const zip = new JSZip();
+      AGENT_FILES.forEach((f, i) => zip.file(f.dest, results[i]));
+      const blob = await zip.generateAsync({ type: "blob" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = label;
+      a.download = "securekit-agent.zip";
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
       setStatus("idle");
     } catch {
@@ -46,17 +73,16 @@ function DlBtn({ label, url, accent = "#4f46e5", fullWidth = false }: { label: s
     }
   };
 
-  const isLoading = status === "loading";
-  const isError   = status === "error";
-
   return (
-    <button onClick={handleDownload} disabled={isLoading}
-      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", width: fullWidth ? "100%" : undefined, backgroundColor: isError ? "#fef2f2" : "#fff", border: `2px solid ${isError ? "#fca5a5" : accent + "44"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: isError ? "#dc2626" : accent, cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1 }}
+    <button
+      onClick={handleDownload}
+      disabled={isLoading}
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 14px", width: fullWidth ? "100%" : undefined, backgroundColor: isError ? "#fef2f2" : "#fff", border: `2px solid ${isError ? "#fca5a5" : accent + "44"}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: isError ? "#dc2626" : accent, cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1, boxSizing: "border-box" }}
       onMouseEnter={e => { if (!isLoading && !isError) e.currentTarget.style.backgroundColor = `${accent}11`; }}
       onMouseLeave={e => { if (!isError) e.currentTarget.style.backgroundColor = "#fff"; }}
     >
       <Download style={{ width: 13, height: 13 }} />
-      {isLoading ? "Downloading…" : isError ? "Download failed — try again" : label}
+      {isLoading ? "Preparing download…" : isError ? "Download failed — retry?" : label}
     </button>
   );
 }
@@ -74,7 +100,7 @@ function DownloadPanel() {
         Download the full repository ZIP — it contains everything the agent needs (<code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code>, <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.sh</code>, <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>local_agent.py</code>, and the required <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>src/</code> package). Extract the ZIP, then:
       </p>
 
-      <DlBtn label="Download Necessary Files (.zip)" url={REPO_ZIP_URL} accent="#7c3aed" fullWidth />
+      <DlBtn label="Download Necessary Files (.zip)" accent="#7c3aed" fullWidth />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ backgroundColor: "#fff", border: "1px solid #e9d5ff", borderRadius: 8, padding: 10 }}>
