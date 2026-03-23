@@ -48,8 +48,7 @@ function DlBtn({ label, url, accent = "#4f46e5" }: { label: string; url: string;
       a.click();
       URL.revokeObjectURL(a.href);
       setStatus("idle");
-    } catch (err) {
-      console.error("Download failed:", err);
+    } catch {
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     }
@@ -86,7 +85,7 @@ function DownloadPanel() {
             🪟 Windows
           </p>
           <p style={{ fontSize: 10, color: "#7c3aed", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> — it installs everything and opens ngrok automatically.
+            Download all files below into the <strong>same folder</strong>, then double-click <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>StartAgent.bat</code> — it creates a virtualenv, installs dependencies, and starts the agent. Open Chrome or Edge and visit <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>https://securekit.onrender.com</code> or <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://localhost:5173</code>.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
             <DlBtn label="StartAgent.bat" url={DOWNLOADS.windows.url} accent="#7c3aed" />
@@ -115,7 +114,7 @@ function DownloadPanel() {
       </div>
 
       <p style={{ fontSize: 10, color: "#7c3aed", margin: 0, lineHeight: 1.5 }}>
-        The script will open two windows: the <strong>agent</strong> and <strong>ngrok</strong>. Copy the <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>https://</code> URL from the ngrok window and paste it below.
+        Once the script is running, the agent listens at <code style={{ fontFamily: "monospace", backgroundColor: "#ede9fe", padding: "1px 4px", borderRadius: 3 }}>http://127.0.0.1:8765</code> — no ngrok required. Use Chrome or Edge for the hosted site (Firefox blocks local connections from HTTPS pages).
       </p>
     </div>
   );
@@ -170,7 +169,7 @@ function AgentUrlInput({ agentUrl, onSetUrl, onRecheck }: {
         </button>
         {!isDefault && (
           <button
-            onClick={() => { setInput(DEFAULT_AGENT_URL); onSetUrl(DEFAULT_AGENT_URL); setTimeout(onRecheck, 100); }}
+            onClick={() => { setInput(DEFAULT_AGENT_URL); onSetUrl(DEFAULT_AGENT_URL); onRecheck(DEFAULT_AGENT_URL); }}
             title="Reset to localhost"
             style={{ backgroundColor: "#fff", color: "#64748b", border: "2px solid #bbf7d0", borderRadius: 8, padding: "8px 10px", fontSize: 10, cursor: "pointer" }}
           >
@@ -180,7 +179,7 @@ function AgentUrlInput({ agentUrl, onSetUrl, onRecheck }: {
       </div>
 
       <p style={{ fontSize: 10, color: "#166534", margin: 0, lineHeight: 1.5 }}>
-        Copy the <strong>Forwarding</strong> URL from the ngrok window (looks like <code style={{ fontFamily: "monospace", backgroundColor: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>https://abc123.ngrok-free.app</code>) and paste it above, then click <strong>Connect</strong>.
+        The default URL <code style={{ fontFamily: "monospace", backgroundColor: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>http://127.0.0.1:8765</code> works for Chrome and Edge on the same machine. For multi-device access, paste your ngrok forwarding URL (e.g. <code style={{ fontFamily: "monospace", backgroundColor: "#dcfce7", padding: "1px 4px", borderRadius: 3 }}>https://abc123.ngrok-free.app</code>) and click <strong>Connect</strong>.
       </p>
     </div>
   );
@@ -287,6 +286,19 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
           >
             <RefreshCw style={{ width: 14, height: 14, color: "#92400e" }} />
           </button>
+        </div>
+
+        {/* Browser compatibility note */}
+        <div style={{ backgroundColor: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#713f12", margin: "0 0 2px" }}>
+            Browser requirement: Chrome or Edge
+          </p>
+          <p style={{ fontSize: 10, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
+            Live agent features require <strong>Chrome</strong> or <strong>Edge</strong> when using the hosted site at{" "}
+            <code style={{ fontFamily: "monospace", backgroundColor: "#fde68a", padding: "1px 3px", borderRadius: 2 }}>securekit.onrender.com</code>.
+            Firefox blocks local connections from HTTPS pages.
+            The <strong>Snapshot</strong> button works in all browsers without the agent.
+          </p>
         </div>
 
         <DownloadPanel />

@@ -10,5 +10,5 @@ zxcvbn==4.5.0
 requests==2.32.5
 
 # MS2 — Network scanning & traffic
-scapy>=2.5.0
+scapy>=2.5.0,<3.0
 psutil>=5.9.0

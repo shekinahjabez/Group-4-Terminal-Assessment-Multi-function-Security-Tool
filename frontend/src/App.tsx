@@ -298,8 +298,7 @@ export default function App() {
           )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#34d399", display: "inline-block" }} />
-            <span style={{ fontSize: 12, color: "#94a3b8", fontFamily: "monospace" }}>API Connected</span>
+            <span style={{ fontSize: 12, color: "#94a3b8", fontFamily: "monospace" }}>v2.0 · MO-IT142</span>
           </div>
         </div>
       </div>

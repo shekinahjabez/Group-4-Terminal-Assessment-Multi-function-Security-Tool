@@ -24,6 +24,16 @@ interface ScanResult {
 
 type ScanMode = "common" | "range" | "custom";
 
+function isPrivateIP(value: string): boolean {
+  const h = value.trim();
+  return (
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h) ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(h) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)
+  );
+}
+
 const RISK_STYLE: Record<string, { bg: string; border: string; badge_bg: string; badge_text: string }> = {
   high:   { bg: "#fef2f2", border: "#fecaca", badge_bg: "#fee2e2", badge_text: "#b91c1c" },
   medium: { bg: "#fffbeb", border: "#fde68a", badge_bg: "#fef3c7", badge_text: "#92400e" },
@@ -90,6 +100,7 @@ export function PortScanner() {
   const isAgentConnected = agent.state === "running-live" || agent.state === "running-no-scapy";
   const SCAN_BASE = isAgentConnected ? agent.agentUrl : API;
   const SCAN_PATH = isAgentConnected ? "/scan" : "/api/scan";
+  const showPrivateIPWarning = !isAgentConnected && isPrivateIP(host);
 
   const handleScan = async () => {
     if (!host.trim()) { setError("Please enter a target host or IP."); return; }
@@ -149,6 +160,11 @@ export function PortScanner() {
             onFocus={e => (e.currentTarget.style.borderColor = "#7c3aed")}
             onBlur={e  => (e.currentTarget.style.borderColor = "#e2e8f0")}
           />
+          {showPrivateIPWarning && (
+            <div style={{ marginTop: 6, backgroundColor: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#92400e", lineHeight: 1.5 }}>
+              <strong>Note:</strong> This IP is on a private/LAN range. Without the local agent, the scan runs via the Render cloud backend and will target Render's internal network, not your local machine. Connect the local agent for accurate results.
+            </div>
+          )}
         </div>
 
         <div>

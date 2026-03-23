@@ -78,7 +78,7 @@ export function useLocalAgent(): LocalAgentHook {
   const [health, setHealth] = useState<AgentHealthPayload | null>(null);
   const [pollId,  setPollId] = useState<ReturnType<typeof setInterval> | null>(null);
 
-  const probe = useCallback(async (url?: string) => {
+  const probe = useCallback(async (url?: string): Promise<boolean> => {
     const base = (url ?? agentUrl).replace(/\/+$/, "");
     setState("checking");
     try {
@@ -92,18 +92,28 @@ export function useLocalAgent(): LocalAgentHook {
       const data: AgentHealthPayload = await r.json();
       setHealth(data);
       setState(data.scapy_live ? "running-live" : "running-no-scapy");
-    } catch {
+      return true;
+    } catch (err) {
       setState("not-running");
+      // TypeError means the browser blocked the request (e.g. Firefox mixed-content).
+      // Signal the caller to stop polling — retrying will never succeed.
+      if (err instanceof TypeError) return false;
+      return true;
     }
   }, [agentUrl]);
 
   // Fire initial probe for returning users (permission already granted on a previous visit)
   useEffect(() => {
     if (stored === "granted") {
-      probe();
-      const id = setInterval(() => probe(), POLL_INTERVAL_MS);
-      setPollId(id);
-      return () => clearInterval(id);
+      let id: ReturnType<typeof setInterval> | null = null;
+      probe().then(keep => {
+        if (!keep) return; // browser blocked (e.g. Firefox mixed-content) — stop polling
+        id = setInterval(() => {
+          probe().then(k => { if (!k && id !== null) { clearInterval(id!); id = null; } });
+        }, POLL_INTERVAL_MS);
+        setPollId(id);
+      });
+      return () => { if (id !== null) clearInterval(id); };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount only
@@ -111,8 +121,15 @@ export function useLocalAgent(): LocalAgentHook {
   const startPolling = useCallback((url: string) => {
     setPollId(prev => {
       if (prev) clearInterval(prev);
-      probe(url);
-      return setInterval(() => probe(url), POLL_INTERVAL_MS);
+      let id: ReturnType<typeof setInterval> | null = null;
+      probe(url).then(keep => {
+        if (!keep) return; // browser blocked — stop polling
+        id = setInterval(() => {
+          probe(url).then(k => { if (!k && id !== null) { clearInterval(id!); id = null; } });
+        }, POLL_INTERVAL_MS);
+        setPollId(id);
+      });
+      return null; // will be overwritten by setPollId inside the .then()
     });
   }, [probe]);
 
