@@ -64,6 +64,14 @@ if [ ! -f "$SCRIPT_DIR/local_agent.py" ]; then
     exit 1
 fi
 
+# ── Verify src/ package tree exists ───────────────────────────────────────────
+if [ ! -d "$SCRIPT_DIR/src" ]; then
+    echo " [ERROR] src/ directory not found in $SCRIPT_DIR"
+    echo "         The local agent requires the full repository, not just the agent scripts."
+    echo "         Clone or download the complete repo, then run this script from the repo root."
+    exit 1
+fi
+
 # ── Track whether windows were opened ─────────────────────────────────────────
 AGENT_WINDOW_OPENED=false
 NGROK_WINDOW_OPENED=false
@@ -156,7 +164,7 @@ fi
 echo " What to do next:"
 echo ""
 echo "  1. Open Chrome or Edge (required — Firefox blocks localhost from HTTPS)"
-echo "  2. Go to https://securekit.onrender.com"
+echo "  2. Go to https://securekit-whk3.onrender.com"
 echo "  3. Open Port Scanner or Traffic Analyzer"
 echo "  4. Click 'Enable Local Scanning' — the site will connect automatically"
 echo "     to http://127.0.0.1:8765 (no URL to copy or paste)"
