@@ -39,6 +39,7 @@ _SUSPICIOUS_PORTS = {31337, 4444, 6666, 1337, 12345, 9999, 65535, 8888}
 
 
 def _simulate_packets(n: int = 5) -> list:
+    # generates fake network packets for simulation mode
     pkts = []
     for _ in range(n):
         proto    = random.choice(_PROTO_POOL)
@@ -83,6 +84,7 @@ _SCAPY_FLAG_MAP = {
 
 
 def _format_live_packet(packet) -> dict:
+    # formats a real scapy packet into a dict the frontend can read
     """Convert a raw Scapy packet to the SSE packet dict (same schema as _simulate_packets)."""
     from scapy.all import IP, TCP, UDP, ICMP
 
@@ -157,6 +159,7 @@ class _Stats:
         self.hosts: set = set()
 
     def add(self, pkt: dict):
+        # adds one packet to the running stats counters
         self.total += 1
         self.bytes += pkt.get("bytes", 0)
         if pkt.get("suspicious"): self.sus += 1
@@ -168,6 +171,7 @@ class _Stats:
         if src_ip: self.hosts.add(src_ip)
 
     def to_dict(self) -> dict:
+        # converts the stats into a dict with percentages for the frontend
         t = max(self.total, 1)
         tcp_pct   = round(self.tcp / t * 100)
         udp_pct   = round(self.udp / t * 100)
@@ -183,9 +187,8 @@ class _Stats:
         }
 
 
-# traffic_analyzer_api.py
-
 def _matches_filters(pkt: dict, protocol: str, ip: str, src_ip: str, dst_ip: str, port: str = "") -> bool:
+    # checks if a packet matches all the filters the user set
     """Return True if packet passes all active filters."""
     # Protocol filter
     if protocol:
@@ -236,6 +239,7 @@ async def _stream_live(
     dst_ip:   str,
     iface:    str = "",
 ):
+    # captures real packets from the network interface and yields them over SSE
     """Async generator: real packet capture via Scapy AsyncSniffer."""
     # 2a: Build BPF filter — validate user inputs early
     try:
@@ -256,6 +260,7 @@ async def _stream_live(
 
     # 2c: per-packet callback runs on sniffer thread
     def _on_packet(pkt):
+        # called by scapy for each captured packet, puts it on the queue
         item = _format_live_packet(pkt)
         try:
             loop.call_soon_threadsafe(queue.put_nowait, item)
@@ -361,6 +366,7 @@ async def stream_traffic(
     use_real: bool = False,
     iface:    str  = "",
 ):
+    # picks live capture or simulation and yields SSE packet batches
     # Dispatch to live capture path when requested and Scapy is available
     if use_real and _ENGINE_AVAILABLE:
         async for chunk in _stream_live(duration, protocol, port, ip, src_ip, dst_ip, iface):
@@ -403,6 +409,7 @@ async def stream_traffic(
 
 def snapshot_traffic(count: int = 20, protocol: str = "", ip: str = "",
                      src_ip: str = "", dst_ip: str = "", port: str = "") -> dict:
+    # generates a fixed batch of simulated packets and returns them all at once
     count    = max(1, min(50, count))
     packets  = []
     attempts = 0

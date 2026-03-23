@@ -50,6 +50,7 @@ except ImportError:
 
 
 def _is_privileged() -> bool:
+    # checks if the process has root or admin privileges
     try:
         if platform.system() == "Windows":
             import ctypes
@@ -103,6 +104,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
+    # tells the frontend whether scapy and privileges are available
     """Probed by the frontend on component mount."""
     scapy_error = None
     if not _ENGINE_AVAILABLE:
@@ -138,10 +140,12 @@ def health():
 
 @app.get("/setup-info")
 def setup_info():
+    # collects package versions and system info for troubleshooting
     """Full diagnostic dump — shown in troubleshooting panel."""
     import importlib.metadata
 
     def _pkg_ver(name: str) -> str:
+        # looks up the installed version of a package
         try:
             return importlib.metadata.version(name)
         except Exception:
@@ -173,6 +177,7 @@ class ScanRequest(BaseModel):
 
 @app.post("/scan")
 def scan_ports(req: ScanRequest):
+    # runs a real TCP port scan on the local machine
     if run_scan is None:
         raise HTTPException(status_code=500, detail="port_scanner_api not found — check your src/ path")
     try:
@@ -196,6 +201,7 @@ def traffic_stream(
     dst_ip:   str = "",
     iface:    str = "",
 ):
+    # streams live or simulated packets depending on privileges
     if stream_traffic is None:
         raise HTTPException(status_code=500, detail="traffic_analyzer_api not found — check your src/ path")
 

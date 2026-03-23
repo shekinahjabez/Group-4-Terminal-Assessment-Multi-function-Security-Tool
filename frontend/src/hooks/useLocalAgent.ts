@@ -45,6 +45,7 @@ export interface LocalAgentHook {
 }
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
+// reads the stored permission value from local storage
 function readPermission(): "granted" | "denied" | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY_PERMISSION);
@@ -52,21 +53,26 @@ function readPermission(): "granted" | "denied" | null {
   } catch { /* private browsing */ }
   return null;
 }
+// saves the permission value to local storage
 function writePermission(value: "granted" | "denied") {
   try { localStorage.setItem(STORAGE_KEY_PERMISSION, value); } catch { /* ignore */ }
 }
+// removes the stored permission from local storage
 function clearPermission() {
   try { localStorage.removeItem(STORAGE_KEY_PERMISSION); } catch { /* ignore */ }
 }
+// reads the custom agent url from local storage or falls back to default
 function readAgentUrl(): string {
   try { return localStorage.getItem(STORAGE_KEY_URL) || DEFAULT_AGENT_URL; }
   catch { return DEFAULT_AGENT_URL; }
 }
+// saves a custom agent url to local storage
 function writeAgentUrl(url: string) {
   try { localStorage.setItem(STORAGE_KEY_URL, url); } catch { /* ignore */ }
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
+// manages agent state, polling, and permission across the app
 export function useLocalAgent(): LocalAgentHook {
   const stored = readPermission();
   const [agentUrl, setAgentUrlState] = useState<string>(readAgentUrl());
@@ -78,6 +84,7 @@ export function useLocalAgent(): LocalAgentHook {
   const [health, setHealth] = useState<AgentHealthPayload | null>(null);
   const [pollId,  setPollId] = useState<ReturnType<typeof setInterval> | null>(null);
 
+  // hits the agent health endpoint and updates state based on the response
   const probe = useCallback(async (url?: string): Promise<boolean> => {
     const base = (url ?? agentUrl).replace(/\/+$/, "");
     setState("checking");
@@ -118,6 +125,7 @@ export function useLocalAgent(): LocalAgentHook {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount only
 
+  // starts probing the agent on a 30 second interval
   const startPolling = useCallback((url: string) => {
     setPollId(prev => {
       if (prev) clearInterval(prev);
@@ -133,23 +141,27 @@ export function useLocalAgent(): LocalAgentHook {
     });
   }, [probe]);
 
+  // saves a new agent url and updates the state
   const setAgentUrl = useCallback((url: string) => {
     const clean = url.trim().replace(/\/+$/, "");
     writeAgentUrl(clean);
     setAgentUrlState(clean);
   }, []);
 
+  // stores granted permission and immediately starts probing the agent
   const grantPermission = useCallback(() => {
     writePermission("granted");
     startPolling(agentUrl);
   }, [startPolling, agentUrl]);
 
+  // stores denied permission and stops polling
   const denyPermission = useCallback(() => {
     writePermission("denied");
     if (pollId) clearInterval(pollId);
     setState("permission-denied");
   }, [pollId]);
 
+  // clears stored permission and goes back to the pending state
   const resetPermission = useCallback(() => {
     clearPermission();
     if (pollId) clearInterval(pollId);

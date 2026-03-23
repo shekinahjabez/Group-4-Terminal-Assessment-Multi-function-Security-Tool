@@ -32,6 +32,7 @@ HIGH_RISK   = {21, 23, 135, 137, 138, 139, 445, 1433, 3389, 5900}
 MEDIUM_RISK = {22, 25, 53, 80, 110, 143, 389, 443, 3306, 5432, 6379, 27017}
 
 def _risk(port: int) -> str:
+    # figures out how risky an open port is based on what service it runs
     if port in HIGH_RISK:   return "high"
     if port in MEDIUM_RISK: return "medium"
     return "low"
@@ -41,6 +42,7 @@ COMMON_PORTS = sorted(SERVICE_MAP.keys())
 
 # ── Core TCP probe ────────────────────────────────────────────────────────────
 def _probe(host: str, port: int, timeout: float) -> dict[str, Any]:
+    # tries to connect to a single port and returns open/closed/filtered
     """Return a single port result dict."""
     try:
         with socket.create_connection((host, port), timeout=timeout):
@@ -64,6 +66,7 @@ def _build_port_list(
     end: int,
     ports_str: str,
 ) -> list[int]:
+    # builds the list of ports to scan based on the selected mode
     if mode == "common":
         return COMMON_PORTS
 
@@ -104,6 +107,7 @@ def run_scan(
     end:     int   = 1024,
     ports:   str   = "",
 ) -> dict[str, Any]:
+    # scans all the ports in the list and returns the open ones
     """
     Run a TCP port scan and return a JSON-serialisable result dict.
 

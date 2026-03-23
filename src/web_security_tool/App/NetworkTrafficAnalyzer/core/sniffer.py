@@ -15,6 +15,7 @@ except ImportError:
 
 
 def _validate_ip(value: str, label: str) -> str:
+    # checks that the ip address is valid and returns a clean version
     """Validate an IPv4/IPv6 address string. Returns normalized string."""
     value = (value or "").strip()
     if not value:
@@ -26,6 +27,7 @@ def _validate_ip(value: str, label: str) -> str:
 
 
 def build_bpf_filter(protocol="", port="", ip="", src_ip="", dst_ip=""):
+    # builds a bpf filter string from user-provided protocol and ip filters
     """
     Build a BPF filter string from protocol/port and IP filters.
     - ip: match either src or dst (host X)
@@ -69,41 +71,6 @@ def build_bpf_filter(protocol="", port="", ip="", src_ip="", dst_ip=""):
         parts.append(f"port {port_num}")
 
     return " and ".join(parts) if parts else ""
-
-#def build_ip_filter(ip="", src_ip="", dst_ip=""):
-    """Build BPF host/src/dst filters from IP fields (IPv4)."""
-
-    #def is_ipv4(s: str) -> bool:
-        #s = s.strip()
-        #parts = s.split(".")
-        #if len(parts) != 4:
-            #return False
-        #try:
-            #return all(0 <= int(p) <= 255 for p in parts)
-        #except ValueError:
-            #return False
-
-    #parts = []
-    #ip = ip.strip()
-    #src_ip = src_ip.strip()
-    #dst_ip = dst_ip.strip()
-
-    #if ip:
-        #if not is_ipv4(ip):
-            #raise ValueError(f"Invalid IP '{ip}'. Use IPv4 like 192.168.1.10")
-        #parts.append(f"host {ip}")
-
-    #if src_ip:
-        #if not is_ipv4(src_ip):
-            #raise ValueError(f"Invalid Source IP '{src_ip}'. Use IPv4 format.")
-        #parts.append(f"src host {src_ip}")
-
-    #if dst_ip:
-        #if not is_ipv4(dst_ip):
-            #raise ValueError(f"Invalid Destination IP '{dst_ip}'. Use IPv4 format.")
-        #parts.append(f"dst host {dst_ip}")
-
-    #return " and ".join(parts) if parts else ""
 
 
 # Lookup tables for human-readable packet descriptions
@@ -151,12 +118,14 @@ WELL_KNOWN_PORTS = {
 
 
 def _port_label(port_num):
+    # looks up the service name for a port number
     """Return service name for a port, or empty string."""
     name = WELL_KNOWN_PORTS.get(port_num)
     return f" ({name})" if name else ""
 
 
 def format_packet(packet):
+    # pulls out the important fields from a scapy packet into a dict
     """Extract key details from a captured packet into a dict."""
     details = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -200,6 +169,7 @@ def format_packet(packet):
 
 
 def format_packet_line(details):
+    # formats a packet dict into a single readable string for display
     """Format packet details dict into a single display line."""
     src = details["src_ip"]
     if details["src_port"]:
@@ -231,21 +201,18 @@ class CaptureEngine:
         self._raw_packets = []     # scapy packets for pcap
 
     def get_pcap_path(self):
+        # returns the path of the last saved pcap file
         """Return last saved PCAP path (empty string if none)."""
         return self._pcap_path
 
     def start(self, protocol="", port="", ip="", src_ip="", dst_ip="", callback=None):
+        # starts the background sniffer with the given filters
         """Start capturing packets with optional filters."""
         if not SCAPY_AVAILABLE:
             raise RuntimeError(
                 "Scapy is not installed. Please install it with:\n"
                 "  pip install scapy\nThen restart the application."
             )
-
-        # Build filter parts
-        #bpf1 = build_bpf_filter(protocol, port)
-        #bpf2 = build_ip_filter(ip, src_ip, dst_ip)
-        #bpf_filter = " and ".join([p for p in (bpf1, bpf2) if p]).strip()
 
         bpf_filter = build_bpf_filter(
         protocol=protocol,
@@ -278,6 +245,7 @@ class CaptureEngine:
             raise RuntimeError(f"Capture failed to start: {e}")
 
     def _process_packet(self, packet):
+        # handles each captured packet and passes it to the callback
         """Format a packet and send to callback."""
         if not self.running:
             return
@@ -292,6 +260,7 @@ class CaptureEngine:
             self.callback(line)
 
     def _close_pcap(self):
+        # closes the open pcap writer if there is one
         if self._pcap_writer is not None:
             try:
                 self._pcap_writer.close()
@@ -299,6 +268,7 @@ class CaptureEngine:
                 self._pcap_writer = None
 
     def stop(self):
+        # stops the sniffer and cleans up
         """Stop capture (NO file writing here)."""
         if not self.running:
             return
@@ -312,6 +282,7 @@ class CaptureEngine:
             pass
 
     def export_pcap(self, out_dir=None):
+        # saves the captured packets to a pcap file and returns the path
         """
         Save captured packets as a PCAP file into out_dir (default: self.log_dir).
         Returns the saved pcap path, or "" if nothing saved.
