@@ -4,14 +4,16 @@ import { PasswordGenerator } from "./components/PasswordGenerator";
 import { InputValidator } from "./components/InputValidator";
 import { PortScanner } from "./components/PortScanner";
 import { TrafficAnalyzer } from "./components/TrafficAnalyzer";
+import { BreachChecker } from "./components/BreachChecker";          // ← ADD
 import {
   Shield, Zap, ScanEye, Radar, Activity,
   PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight,
   Lock, Network, ArrowRight, KeyRound, FileCheck,
-  CheckCircle2, Info,
+  CheckCircle2, Info, ShieldAlert,                                   // ← ADD ShieldAlert
 } from "lucide-react";
 
-type TabId = "home" | "strength" | "generator" | "validator" | "scanner" | "traffic";
+// ── 1. Add "breach" to the union ─────────────────────────────────────────────
+type TabId = "home" | "strength" | "generator" | "validator" | "scanner" | "traffic" | "breach";
 
 const C: Record<string, { dot: string; active: string; icon: string; bar: string }> = {
   blue:    { dot: "bg-blue-500",    active: "text-blue-700 bg-blue-50 border-blue-200",          icon: "text-blue-600",    bar: "bg-blue-500"    },
@@ -20,12 +22,15 @@ const C: Record<string, { dot: string; active: string; icon: string; bar: string
   emerald: { dot: "bg-emerald-500", active: "text-emerald-700 bg-emerald-50 border-emerald-200", icon: "text-emerald-600", bar: "bg-emerald-500" },
   amber:   { dot: "bg-amber-500",   active: "text-amber-700 bg-amber-50 border-amber-200",       icon: "text-amber-600",   bar: "bg-amber-500"   },
   rose:    { dot: "bg-rose-500",    active: "text-rose-700 bg-rose-50 border-rose-200",          icon: "text-rose-600",    bar: "bg-rose-500"    },
+  red:     { dot: "bg-red-500",     active: "text-red-700 bg-red-50 border-red-200",             icon: "text-red-600",     bar: "bg-red-500"     }, // ← ADD
 };
 
+// ── 2. Add breach entry to MS1_TOOLS ─────────────────────────────────────────
 const MS1_TOOLS = [
-  { id: "strength"  as TabId, icon: ScanEye, title: "Analyze",  subtitle: "Password strength", color: "blue"   },
-  { id: "generator" as TabId, icon: Zap,     title: "Generate", subtitle: "Secure password",   color: "indigo" },
-  { id: "validator" as TabId, icon: Shield,  title: "Validate", subtitle: "Form inputs",       color: "violet" },
+  { id: "strength"  as TabId, icon: ScanEye,     title: "Analyze",  subtitle: "Password strength", color: "blue"   },
+  { id: "generator" as TabId, icon: Zap,         title: "Generate", subtitle: "Secure password",   color: "indigo" },
+  { id: "validator" as TabId, icon: Shield,      title: "Validate", subtitle: "Form inputs",       color: "violet" },
+  { id: "breach"    as TabId, icon: ShieldAlert, title: "Breach",   subtitle: "Leak checker",      color: "red"    }, // ← ADD
 ];
 const MS2_TOOLS = [
   { id: "scanner" as TabId, icon: Radar,    title: "Scanner", subtitle: "Port scanning",    color: "emerald" },
@@ -38,14 +43,14 @@ export default function App() {
   const [ms1Open,          setMs1Open]          = useState(true);
   const [ms2Open,          setMs2Open]          = useState(true);
 
-  // Sidebar is hidden entirely on home page
-  const isHome     = activeTab === "home";
+  const isHome      = activeTab === "home";
   const showSidebar = !isHome;
 
+  // ── 3. Add "breach" to the ms1Open guard ─────────────────────────────────
   const navigate = (tab: TabId) => {
     setActiveTab(tab);
-    if (["strength", "generator", "validator"].includes(tab)) setMs1Open(true);
-    if (["scanner", "traffic"].includes(tab))                 setMs2Open(true);
+    if (["strength", "generator", "validator", "breach"].includes(tab)) setMs1Open(true);
+    if (["scanner", "traffic"].includes(tab))                           setMs2Open(true);
   };
 
   const NavItem = ({ tool }: { tool: (typeof MS1_TOOLS)[0] }) => {
@@ -144,11 +149,11 @@ export default function App() {
           </p>
           <div style={{ marginBottom: 20 }}>
             {[
-              { icon: Lock,      label: "Check password strength",          tab: "strength"  as TabId },
-              { icon: Zap,       label: "Generate secure passwords",         tab: "generator" as TabId },
-              { icon: FileCheck, label: "Validate and sanitize inputs",      tab: "validator" as TabId },
-              { icon: Shield,    label: "Comprehensive security assessment", tab: "strength"  as TabId },
-              { icon: Shield,    label: "Security testing terminal",         tab: "validator" as TabId },
+              { icon: Lock,        label: "Check password strength",            tab: "strength"  as TabId },
+              { icon: Zap,         label: "Generate secure passwords",           tab: "generator" as TabId },
+              { icon: FileCheck,   label: "Validate and sanitize inputs",        tab: "validator" as TabId },
+              { icon: ShieldAlert, label: "Check for leaked passwords & emails", tab: "breach"    as TabId }, // ← ADD
+              { icon: Shield,      label: "Security testing terminal",           tab: "validator" as TabId },
             ].map(item => (
               <button key={item.label} onClick={() => navigate(item.tab)}
                 style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "none", border: "none", cursor: "pointer", padding: "6px 0", color: "#475569", fontSize: 13, textAlign: "left" }}
@@ -239,7 +244,7 @@ export default function App() {
             Group 4 · MO-IT142 Security Script Programming · Terminal Assessment AY 2024-2025
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {["FastAPI", "React + TypeScript", "Python 3", "Scapy", "bcrypt", "Tailwind CSS", "Render"].map(tag => (
+            {["FastAPI", "React + TypeScript", "Python 3", "Scapy", "bcrypt", "Tailwind CSS", "Render", "HIBP API"].map(tag => (
               <span key={tag} style={{ fontSize: 10, fontFamily: "monospace", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", borderRadius: 999, padding: "2px 8px" }}>
                 {tag}
               </span>
@@ -270,7 +275,6 @@ export default function App() {
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* On home page: show a "Go to tools" button in the top bar */}
           {isHome && (
             <button
               onClick={() => navigate("strength")}
@@ -283,7 +287,6 @@ export default function App() {
             </button>
           )}
 
-          {/* On tool pages: show sidebar collapse toggle in top bar */}
           {!isHome && (
             <button
               onClick={() => setSidebarCollapsed(s => !s)}
@@ -306,12 +309,10 @@ export default function App() {
       {/* Body */}
       <div style={{ display: "flex", gap: 12, flex: 1, padding: "0 8px 8px", minHeight: 0 }}>
 
-        {/* Sidebar — only shown on tool pages */}
         {showSidebar && (
           <div style={{ width: sidebarCollapsed ? 56 : 210, flexShrink: 0, transition: "width 0.3s" }}>
             <div style={{ height: "100%", display: "flex", flexDirection: "column", backgroundColor: "#fff", borderRadius: 16, padding: 10, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", gap: 4, overflowY: "auto" }}>
 
-              {/* Home button */}
               <button
                 onClick={() => setActiveTab("home")}
                 title={sidebarCollapsed ? "Home" : ""}
@@ -334,7 +335,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Content */}
+        {/* Content ── 4. Add breach render ──────────────────────────────── */}
         <div style={{ flex: 1, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "auto", backgroundColor: isHome ? "#eef2f7" : "#fff" }}>
           {activeTab === "home"      && <HomePage />}
           {activeTab === "strength"  && <div style={{ padding: 20 }}><PasswordStrength /></div>}
@@ -342,6 +343,7 @@ export default function App() {
           {activeTab === "validator" && <div style={{ padding: 20 }}><InputValidator /></div>}
           {activeTab === "scanner"   && <div style={{ padding: 20 }}><PortScanner /></div>}
           {activeTab === "traffic"   && <div style={{ padding: 20 }}><TrafficAnalyzer /></div>}
+          {activeTab === "breach"    && <div style={{ padding: 20 }}><BreachChecker /></div>}  {/* ← ADD */}
         </div>
       </div>
 
@@ -386,7 +388,6 @@ export default function App() {
           (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 4px 14px rgba(79,70,229,0.35)";
         }}
       >
-        {/* Inline book-open SVG (Lucide-compatible, no library import) */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"
