@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldAlert, ShieldCheck, Eye, EyeOff, AlertCircle, Loader2, Lock, Mail } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Eye, EyeOff, AlertCircle, Loader2, Lock, Mail, ExternalLink } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -11,27 +11,14 @@ interface PwnedPasswordResult {
   hash:  string;
 }
 
-// XposedOrNot free API response shapes
-interface XonBreachDetail {
-  breach:         string;   // breach name e.g. "LinkedIn"
-  xposed_date:    string;   // "2012-05-05"
-  xposed_records: number;
-  xposed_data:    string[]; // ["Emails","Passwords",...]
-  password_risk:  string;   // "plaintext" | "hashed" | "unknown"
-}
-
-interface XonAnalyticsResponse {
-  breach_metrics?: {
-    industry?:   [string, number][];
-    passwords?:  [string, number][];
-    risk?:       [string, number][];
-    year?:       [string, number][];
+// XposedOrNot free /v1/check-email response:
+// { "breaches": ["LinkedIn", "Adobe", ...], "BreachMetrics": {...} }
+interface XonCheckEmailResponse {
+  breaches?:      string[];   // array of breach names
+  BreachMetrics?: {
+    risk?: [string, number][]; // e.g. [["low", 2], ["high", 1]]
+    year?: [string, number][]; // e.g. [["2012", 1], ["2019", 2]]
   };
-  breaches_details?: XonBreachDetail[];
-  exposures_count?:  number;
-  first_breach?:     string;
-  last_breach?:      string;
-  site?:             string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -45,18 +32,16 @@ async function sha1(str: string): Promise<string> {
     .toUpperCase();
 }
 
-function formatCount(n: number): string {
-  return Number(n).toLocaleString();
-}
+function fmt(n: number): string { return Number(n).toLocaleString(); }
 
-function severityFromCount(count: number): { label: string; color: string; bg: string; border: string } {
+function severityFromCount(count: number) {
   if (count > 100_000) return { label: "Critical", color: "#b91c1c", bg: "#fef2f2", border: "#fecaca" };
   if (count > 10_000)  return { label: "High",     color: "#c2410c", bg: "#fff7ed", border: "#fed7aa" };
   if (count > 1_000)   return { label: "Medium",   color: "#a16207", bg: "#fefce8", border: "#fef08a" };
   return                      { label: "Low",      color: "#166534", bg: "#f0fdf4", border: "#bbf7d0" };
 }
 
-// ── Password check via HIBP Pwned Passwords (k-anonymity, no key needed) ──────
+// ── Password check — HIBP Pwned Passwords (k-anonymity, always free) ──────────
 
 async function checkPasswordBreach(password: string): Promise<PwnedPasswordResult> {
   const hash   = await sha1(password);
@@ -73,36 +58,18 @@ async function checkPasswordBreach(password: string): Promise<PwnedPasswordResul
   return { found: count > 0, count, hash };
 }
 
-// ── Email check via XposedOrNot (free, open-source, no key, CORS open) ────────
-// Docs: https://api.xposedornot.com/v1/check-email/{email}
-// Analytics: https://api.xposedornot.com/v1/breach-analytics?email={email}
+// ── Email check — XposedOrNot free API (breach names only, no key needed) ─────
 
-async function checkEmailBreach(email: string): Promise<{ safe: boolean; details: XonBreachDetail[]; totalExposures: number }> {
-  // Step 1: quick check — returns 200 with breach names, or 404 if safe
-  const checkRes = await fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`);
+async function checkEmailBreach(email: string): Promise<{ safe: boolean; breaches: string[]; metrics: XonCheckEmailResponse["BreachMetrics"] }> {
+  const res = await fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`);
 
-  if (checkRes.status === 404) return { safe: true, details: [], totalExposures: 0 };
-  if (!checkRes.ok) throw new Error(`XposedOrNot API error: ${checkRes.status}`);
+  if (res.status === 404) return { safe: true, breaches: [], metrics: undefined };
+  if (!res.ok) throw new Error(`XposedOrNot API error: ${res.status}`);
 
-  // Step 2: get detailed breach analytics
-  const analyticsRes = await fetch(
-    `https://api.xposedornot.com/v1/breach-analytics?email=${encodeURIComponent(email)}`
-  );
+  const data: XonCheckEmailResponse = await res.json();
+  const breaches = data.breaches ?? [];
 
-  if (!analyticsRes.ok) {
-    // If analytics fails, still return "found" with no details
-    return { safe: false, details: [], totalExposures: 0 };
-  }
-
-  const data: XonAnalyticsResponse = await analyticsRes.json();
-
-  const details      = data.breaches_details ?? [];
-  const totalExposures = data.exposures_count ?? 0;
-
-  // Sort by date descending (most recent first)
-  details.sort((a, b) => new Date(b.xposed_date).getTime() - new Date(a.xposed_date).getTime());
-
-  return { safe: false, details, totalExposures };
+  return { safe: breaches.length === 0, breaches, metrics: data.BreachMetrics };
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -122,8 +89,8 @@ export function BreachChecker() {
   const [email,        setEmail]        = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailSafe,    setEmailSafe]    = useState(false);
-  const [emailDetails, setEmailDetails] = useState<XonBreachDetail[]>([]);
-  const [emailTotal,   setEmailTotal]   = useState(0);
+  const [emailBreaches,setEmailBreaches]= useState<string[]>([]);
+  const [emailMetrics, setEmailMetrics] = useState<XonCheckEmailResponse["BreachMetrics"]>(undefined);
   const [emailFound,   setEmailFound]   = useState(false);
   const [emailError,   setEmailError]   = useState<string | null>(null);
   const [emailEmpty,   setEmailEmpty]   = useState(false);
@@ -144,16 +111,16 @@ export function BreachChecker() {
 
   const handleEmailCheck = async () => {
     if (!email.trim()) { setEmailEmpty(true); setEmailFound(false); setEmailSafe(false); setEmailError(null); return; }
-    setEmailEmpty(false); setEmailError(null); setEmailFound(false); setEmailSafe(false);
-    setEmailDetails([]); setEmailTotal(0); setEmailLoading(true);
+    setEmailEmpty(false); setEmailError(null); setEmailFound(false);
+    setEmailSafe(false); setEmailBreaches([]); setEmailMetrics(undefined); setEmailLoading(true);
     try {
-      const { safe, details, totalExposures } = await checkEmailBreach(email.trim());
+      const { safe, breaches, metrics } = await checkEmailBreach(email.trim());
       if (safe) {
         setEmailSafe(true);
       } else {
         setEmailFound(true);
-        setEmailDetails(details);
-        setEmailTotal(totalExposures);
+        setEmailBreaches(breaches);
+        setEmailMetrics(metrics);
       }
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : "Network error. Please try again.");
@@ -223,7 +190,7 @@ export function BreachChecker() {
         ))}
       </div>
 
-      {/* ── Password Tab ── */}
+      {/* ── PASSWORD TAB ── */}
       {tab === "password" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -282,7 +249,7 @@ export function BreachChecker() {
                   <div>
                     <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: sev!.color }}>Password Compromised</p>
                     <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
-                      Found in <strong style={{ color: sev!.color }}>{formatCount(pwResult.count)}</strong> breach record{pwResult.count !== 1 ? "s" : ""}
+                      Found in <strong style={{ color: sev!.color }}>{fmt(pwResult.count)}</strong> breach record{pwResult.count !== 1 ? "s" : ""}
                     </p>
                   </div>
                   <span style={{ marginLeft: "auto", backgroundColor: sev!.bg, border: `1px solid ${sev!.border}`, color: sev!.color, borderRadius: 999, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>
@@ -291,10 +258,7 @@ export function BreachChecker() {
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {[
-                    { label: "Exposures",  value: formatCount(pwResult.count) },
-                    { label: "Risk Level", value: sev!.label                  },
-                  ].map(s => (
+                  {[{ label: "Exposures", value: fmt(pwResult.count) }, { label: "Risk Level", value: sev!.label }].map(s => (
                     <div key={s.label} style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
                       <p style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
                       <p style={{ fontSize: 14, fontWeight: 700, color: sev!.color, margin: "4px 0 0" }}>{s.value}</p>
@@ -341,11 +305,11 @@ export function BreachChecker() {
         </div>
       )}
 
-      {/* ── Email Tab ── */}
+      {/* ── EMAIL TAB ── */}
       {tab === "email" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-          {/* XposedOrNot credit badge */}
+          {/* Source badge */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: "#eff6ff", border: "2px solid #bfdbfe", borderRadius: 10, padding: "8px 14px" }}>
             <ShieldCheck style={{ width: 14, height: 14, color: "#3b82f6", flexShrink: 0 }} />
             <p style={{ margin: 0, fontSize: 11, color: "#1e40af", fontFamily: "monospace" }}>
@@ -357,6 +321,7 @@ export function BreachChecker() {
             </p>
           </div>
 
+          {/* Input */}
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Email or Username
@@ -395,7 +360,7 @@ export function BreachChecker() {
             </div>
           )}
 
-          {/* Safe result */}
+          {/* Safe */}
           {emailSafe && (
             <div style={{ backgroundColor: "#f0fdf4", border: "2px solid #bbf7d0", borderRadius: 12, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 44, height: 44, backgroundColor: "#dcfce7", border: "2px solid #86efac", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -410,74 +375,105 @@ export function BreachChecker() {
             </div>
           )}
 
-          {/* Breach results */}
+          {/* Breaches found */}
           {emailFound && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-              {/* Summary */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "Breaches Found",  value: String(emailDetails.length || "—")     },
-                  { label: "Total Exposures",  value: emailTotal ? formatCount(emailTotal) : "—" },
-                ].map(s => (
-                  <div key={s.label} style={{ backgroundColor: "#fef2f2", border: "2px solid #fecaca", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
-                    <p style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: "#b91c1c", margin: "4px 0 0" }}>{s.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Breach cards */}
-              {emailDetails.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
-                  {emailDetails.map(breach => (
-                    <div key={breach.breach} style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{breach.breach}</p>
-                        <span style={{ flexShrink: 0, backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 999, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>
-                          {formatCount(breach.xposed_records)} records
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>📅 {breach.xposed_date || "Unknown date"}</span>
-                        {breach.password_risk && breach.password_risk !== "unknown" && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 600, borderRadius: 999, padding: "1px 8px",
-                            backgroundColor: breach.password_risk === "plaintext" ? "#fef2f2" : "#f0fdf4",
-                            border: `1px solid ${breach.password_risk === "plaintext" ? "#fecaca" : "#bbf7d0"}`,
-                            color: breach.password_risk === "plaintext" ? "#b91c1c" : "#166534",
-                          }}>
-                            {breach.password_risk === "plaintext" ? "⚠ Plaintext password" : "✓ Hashed password"}
-                          </span>
-                        )}
-                      </div>
-                      {breach.xposed_data?.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {breach.xposed_data.slice(0, 6).map(dc => (
-                            <span key={dc} style={{ fontSize: 10, fontFamily: "monospace", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", borderRadius: 999, padding: "2px 8px" }}>
-                              {dc}
-                            </span>
-                          ))}
-                          {breach.xposed_data.length > 6 && (
-                            <span style={{ fontSize: 10, color: "#94a3b8" }}>+{breach.xposed_data.length - 6} more</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {/* Summary header */}
+              <div style={{ backgroundColor: "#fef2f2", border: "2px solid #fecaca", borderRadius: 12, padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, backgroundColor: "#fee2e2", border: "2px solid #fca5a5", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <ShieldAlert style={{ width: 22, height: 22, color: "#dc2626" }} />
                 </div>
-              ) : (
-                // found but analytics returned no detail (unlikely but safe fallback)
-                <div style={{ backgroundColor: "#fff7ed", border: "2px solid #fed7aa", borderRadius: 10, padding: "12px 14px" }}>
-                  <p style={{ margin: 0, fontSize: 13, color: "#92400e" }}>
-                    <strong>{email}</strong> was found in breach records. Detailed data was unavailable — check{" "}
-                    <a href={`https://xposedornot.com/xposed/#${email}`} target="_blank" rel="noopener noreferrer" style={{ color: "#4f46e5" }}>
-                      xposedornot.com
-                    </a>{" "}
-                    for full details.
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#b91c1c" }}>Email Found in Breaches</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                    <strong style={{ color: "#b91c1c" }}>{email}</strong> appeared in{" "}
+                    <strong style={{ color: "#b91c1c" }}>{emailBreaches.length}</strong> known breach{emailBreaches.length !== 1 ? "es" : ""}
                   </p>
                 </div>
+                <span style={{ backgroundColor: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 999, padding: "3px 12px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  {emailBreaches.length} breach{emailBreaches.length !== 1 ? "es" : ""}
+                </span>
+              </div>
+
+              {/* Risk breakdown from metrics if available */}
+              {emailMetrics?.risk && emailMetrics.risk.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(emailMetrics.risk.length, 4)}, 1fr)`, gap: 10 }}>
+                  {emailMetrics.risk.map(([label, count]) => {
+                    const colors: Record<string, { bg: string; border: string; text: string }> = {
+                      low:      { bg: "#f0fdf4", border: "#bbf7d0", text: "#166534" },
+                      moderate: { bg: "#fefce8", border: "#fef08a", text: "#a16207" },
+                      high:     { bg: "#fff7ed", border: "#fed7aa", text: "#c2410c" },
+                      critical: { bg: "#fef2f2", border: "#fecaca", text: "#b91c1c" },
+                    };
+                    const c = colors[label.toLowerCase()] ?? colors.moderate;
+                    return (
+                      <div key={label} style={{ backgroundColor: c.bg, border: `2px solid ${c.border}`, borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+                        <p style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>Risk: {label}</p>
+                        <p style={{ fontSize: 16, fontWeight: 700, color: c.text, margin: "4px 0 0" }}>{count}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
+
+              {/* Breach name pills */}
+              {emailBreaches.length > 0 && (
+                <div style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Breached Services ({emailBreaches.length})
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {emailBreaches.map(name => (
+                      <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 8, padding: "4px 10px" }}>
+                        ⚠ {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Year breakdown if available */}
+              {emailMetrics?.year && emailMetrics.year.length > 0 && (
+                <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Breach Timeline
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {[...emailMetrics.year].sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => (
+                      <span key={year} style={{ fontSize: 11, fontFamily: "monospace", backgroundColor: "#fff", border: "1px solid #e2e8f0", color: "#475569", borderRadius: 6, padding: "3px 8px" }}>
+                        {year}: <strong style={{ color: "#1e293b" }}>{count}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              <div style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
+                <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>Recommendations</p>
+                <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {[
+                    "Change passwords for all services listed above immediately.",
+                    "Enable two-factor authentication (2FA) on every affected account.",
+                    "Use the Password Generator to create unique passwords for each service.",
+                    "Monitor your accounts for suspicious activity.",
+                  ].map((tip, i) => (
+                    <li key={i} style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Full details link */}
+              <a
+                href={`https://xposedornot.com/xposed/#${encodeURIComponent(email)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", borderRadius: 10, border: "2px solid #e2e8f0", backgroundColor: "#f8fafc", color: "#4f46e5", fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+              >
+                <ExternalLink style={{ width: 14, height: 14 }} />
+                View full breach details on XposedOrNot.com
+              </a>
             </div>
           )}
         </div>
