@@ -201,7 +201,7 @@ export const TOUR_STEPS: Record<string, TourStep[]> = {
       title: "Start, Stop & Snapshot",
       content: "'Start Live Stream' opens a real-time connection that streams packets as they arrive. 'Snapshot' does a quick 5-second burst. 'Stop' ends the capture. 'Clear' wipes the table.",
       tip: "Use Snapshot for a quick look, and Live Stream when you need to monitor activity over time.",
-      position: "bottom",
+      position: "top",
     },
     {
       target: '[data-tour="traffic-packets"]',

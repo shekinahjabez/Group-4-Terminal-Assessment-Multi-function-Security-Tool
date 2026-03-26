@@ -21,7 +21,7 @@ type Props = {
 };
 
 const TOOLTIP_W = 320;
-const TOOLTIP_H = 200; // rough estimate
+const TOOLTIP_H = 280; // rough estimate — must cover tip box + padding
 
 // ─── TourGuide Component ──────────────────────────────────────────────────────
 export function TourGuide({ steps, isOpen, onClose, toolName }: Props) {
@@ -286,6 +286,10 @@ export function TourGuide({ steps, isOpen, onClose, toolName }: Props) {
           borderRadius: 14,
           boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.15)",
           overflow: "hidden",
+          // Never let the card clip below the viewport — scroll body internally
+          maxHeight: "calc(100vh - 80px)",
+          display: "flex",
+          flexDirection: "column" as const,
           opacity: visible ? 1 : 0,
           transform: visible ? "scale(1)" : "scale(0.95)",
           transition: "opacity 0.25s ease, transform 0.25s ease",
@@ -332,8 +336,8 @@ export function TourGuide({ steps, isOpen, onClose, toolName }: Props) {
           </div>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "12px 16px" }}>
+        {/* Body — flex-grows to fill available space and scrolls if content overflows */}
+        <div style={{ padding: "12px 16px", overflowY: "auto", flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12.5, color: "#94a3b8", lineHeight: 1.65 }}>
             {step.content}
           </p>
