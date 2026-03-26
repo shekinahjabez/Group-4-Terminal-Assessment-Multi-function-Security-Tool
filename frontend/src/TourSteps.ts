@@ -1,5 +1,5 @@
-// tourSteps.ts — Step-by-step guide content for each tool
-import type { TourStep } from "./TourGuide";
+// TourSteps.ts — Step-by-step guide content for each tool
+import type { TourStep } from "./components/TourGuide";
 
 export const TOUR_STEPS: Record<string, TourStep[]> = {
 
