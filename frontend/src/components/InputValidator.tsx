@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { CheckCircle2, XCircle, Shield} from "lucide-react";
+import { CheckCircle2, XCircle, Shield } from "lucide-react";
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
-
 
 interface FormData {
   fullName: string;
@@ -36,12 +35,8 @@ type ApiValidateResponse = {
 
 export function InputValidator() {
   const [formData, setFormData] = useState<FormData>({
-    fullName: "",
-    email: "",
-    username: "",
-    message: "",
+    fullName: "", email: "", username: "", message: "",
   });
-
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -54,59 +49,47 @@ export function InputValidator() {
   };
 
   async function validateField(
-  field_type: "name" | "email" | "username" | "message",
-  value: string
-): Promise<FieldValidation> {
-  try {
-    const r = await fetch(`${API}/api/validate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ field_type, value }),
-    });
+    field_type: "name" | "email" | "username" | "message",
+    value: string
+  ): Promise<FieldValidation> {
+    try {
+      const r = await fetch(`${API}/api/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field_type, value }),
+      });
 
-    const ct = r.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
-      const text = await r.text();
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        const text = await r.text();
+        return { isValid: false, sanitized: "", errors: [`Server returned ${r.status} (non-JSON)`], warnings: [text.slice(0, 120)] };
+      }
+
+      const data: ApiValidateResponse | any = await r.json();
+
+      if (!r.ok) {
+        const detail = data?.detail ? String(data.detail) : `Server returned ${r.status}`;
+        return { isValid: false, sanitized: "", errors: [detail], warnings: [] };
+      }
+
       return {
-        isValid: false,
-        sanitized: "",
-        errors: [`Server returned ${r.status} (non-JSON)`],
-        warnings: [text.slice(0, 120)],
+        isValid: Boolean(data.is_valid),
+        sanitized: String(data.sanitized ?? ""),
+        errors: Array.isArray(data.errors) ? data.errors.map(String) : [],
+        warnings: Array.isArray(data.notes) ? data.notes.map(String) : [],
       };
-    }
-
-    const data: ApiValidateResponse | any = await r.json();
-
-    if (!r.ok) {
-      const detail = data?.detail ? String(data.detail) : `Server returned ${r.status}`;
+    } catch (err: any) {
       return {
-        isValid: false,
-        sanitized: "",
-        errors: [detail],
+        isValid: false, sanitized: "",
+        errors: [err?.message ? String(err.message) : "Network error while validating field."],
         warnings: [],
       };
     }
-
-    return {
-      isValid: Boolean(data.is_valid),
-      sanitized: String(data.sanitized ?? ""),
-      errors: Array.isArray(data.errors) ? data.errors.map(String) : [],
-      warnings: Array.isArray(data.notes) ? data.notes.map(String) : [],
-    };
-  } catch (err: any) {
-    return {
-      isValid: false,
-      sanitized: "",
-      errors: [err?.message ? String(err.message) : "Network error while validating field."],
-      warnings: [],
-    };
   }
-}
 
   const handleValidate = async () => {
     setLoading(true);
     setResult(null);
-
     try {
       const [fullName, email, username, message] = await Promise.all([
         validateField("name", formData.fullName),
@@ -114,14 +97,7 @@ export function InputValidator() {
         validateField("username", formData.username),
         validateField("message", formData.message),
       ]);
-
-
-      setResult({
-        fullName,
-        email,
-        username,
-        message,
-      });
+      setResult({ fullName, email, username, message });
     } finally {
       setLoading(false);
     }
@@ -136,9 +112,11 @@ export function InputValidator() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {/* Left Column - Input Fields */}
+
+        {/* Left Column - Input fields — tour target wraps all inputs */}
         <div className="space-y-2">
-          <div className="space-y-2">
+          <div data-tour="val-input" className="space-y-2">
+
             <div>
               <label className="block text-[10px] font-semibold text-slate-700 mb-1">Full Name</label>
               <input
@@ -184,7 +162,9 @@ export function InputValidator() {
             </div>
           </div>
 
+          {/* Validate button — tour target */}
           <button
+            data-tour="val-type"
             onClick={handleValidate}
             disabled={!allFieldsFilled || loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-3 rounded-lg transition-all duration-200 shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/30 disabled:shadow-none flex items-center justify-center gap-2 text-xs"
@@ -197,14 +177,16 @@ export function InputValidator() {
         {/* Right Column - Results */}
         {result ? (
           <div className="space-y-2">
-            <div className="bg-slate-50 rounded-lg p-2 border-2 border-slate-200">
+
+            {/* Validation status — tour target */}
+            <div data-tour="val-result" className="bg-slate-50 rounded-lg p-2 border-2 border-slate-200">
               <h3 className="text-slate-800 font-bold text-[10px] uppercase tracking-wide mb-1.5">Validation Status</h3>
               <div className="space-y-1.5">
                 {[
                   { field: "Full Name", validation: result.fullName },
-                  { field: "Email", validation: result.email },
-                  { field: "Username", validation: result.username },
-                  { field: "Message", validation: result.message },
+                  { field: "Email",     validation: result.email },
+                  { field: "Username",  validation: result.username },
+                  { field: "Message",   validation: result.message },
                 ].map(({ field, validation }) => (
                   <div
                     key={field}
@@ -213,17 +195,15 @@ export function InputValidator() {
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      {validation.isValid ? (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="w-3 h-3 text-red-600 flex-shrink-0" />
-                      )}
+                      {validation.isValid
+                        ? <CheckCircle2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                        : <XCircle className="w-3 h-3 text-red-600 flex-shrink-0" />}
                       <span className={`text-[10px] font-medium ${validation.isValid ? "text-emerald-700" : "text-red-700"}`}>
                         {field}
                       </span>
                     </div>
                     <div className="text-right">
-                      {validation.errors.length > 0 && <p className="text-red-600 text-[10px]">{validation.errors[0]}</p>}
+                      {validation.errors.length   > 0 && <p className="text-red-600 text-[10px]">{validation.errors[0]}</p>}
                       {validation.warnings.length > 0 && <p className="text-orange-600 text-[10px]">{validation.warnings[0]}</p>}
                     </div>
                   </div>
@@ -231,7 +211,8 @@ export function InputValidator() {
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-lg p-2 border-2 border-slate-200">
+            {/* Sanitized output — tour target */}
+            <div data-tour="val-sanitized" className="bg-slate-50 rounded-lg p-2 border-2 border-slate-200">
               <h3 className="text-slate-800 font-bold text-[10px] uppercase tracking-wide mb-1.5">Sanitized Data</h3>
               <div className="bg-white rounded-md p-2 border-2 border-slate-200 space-y-1.5">
                 <div>
@@ -252,7 +233,6 @@ export function InputValidator() {
                 </div>
               </div>
             </div>
-
 
             <div className="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300 rounded-lg p-2 text-center">
               <p className="text-emerald-700 font-bold text-xs">✓ Validation Complete</p>

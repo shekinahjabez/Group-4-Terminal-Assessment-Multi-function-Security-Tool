@@ -196,7 +196,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
   // ── Permission pending ────────────────────────────────────────────────────
   if (state === "permission-pending") {
     return (
-      <div style={{ backgroundColor: "#eef2ff", border: "2px solid #c7d2fe", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div data-tour="agent-setup-panel" style={{ backgroundColor: "#eef2ff", border: "2px solid #c7d2fe", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Terminal style={{ width: 18, height: 18, color: "#fff" }} />
@@ -229,7 +229,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
   // ── Permission denied — redirect to setup; simulation is not a valid path ─
   if (state === "permission-denied") {
     return (
-      <div style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div data-tour="agent-setup-panel" style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -275,7 +275,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
   // ── Checking ──────────────────────────────────────────────────────────────
   if (state === "checking") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div data-tour="agent-setup-panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ width: 16, height: 16, border: "2px solid #818cf8", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
           <p style={{ fontSize: 11, color: "#64748b", margin: 0 }}>
@@ -291,7 +291,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
   // ── Not running ───────────────────────────────────────────────────────────
   if (state === "not-running") {
     return (
-      <div style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div data-tour="agent-setup-panel" style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -349,7 +349,7 @@ export function AgentSetupPanel({ state, health, agentUrl, toolName, onGrant, on
                              reason.toLowerCase().includes("root") ||
                              reason.toLowerCase().includes("administrator");
     return (
-      <div style={{ backgroundColor: "#f0f9ff", border: "2px solid #bae6fd", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div data-tour="agent-setup-panel" style={{ backgroundColor: "#f0f9ff", border: "2px solid #bae6fd", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#38bdf8", flexShrink: 0, marginTop: 4 }} />
           <div style={{ flex: 1 }}>
