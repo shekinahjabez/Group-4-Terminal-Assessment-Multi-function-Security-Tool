@@ -131,35 +131,60 @@ export function TourGuide({ steps, isOpen, onClose, toolName }: Props) {
     const vh = window.innerHeight;
     const pref = step.position ?? "bottom";
 
+    // How much of the element is visible in the viewport
+    const visibleTop    = Math.max(rect.top,    0);
+    const visibleBottom = Math.min(rect.bottom, vh);
+    const visibleHeight = Math.max(visibleBottom - visibleTop, 0);
+
+    // If the element is taller than 60% of the viewport, anchor to the
+    // visible centre instead of the full element centre — prevents the
+    // tooltip from being pushed below the fold.
+    const isTall = rect.height > vh * 0.6;
+
     const place = (preferred: typeof pref) => {
       if (preferred === "bottom" && rect.bottom + TOOLTIP_H + 16 < vh) return "bottom";
       if (preferred === "top"    && rect.top    - TOOLTIP_H - 16 > 0)  return "top";
       if (preferred === "right"  && rect.right  + TOOLTIP_W + 16 < vw) return "right";
       if (preferred === "left"   && rect.left   - TOOLTIP_W - 16 > 0)  return "left";
-      // fallback
+      // For tall elements that fill the viewport, overlay the tooltip
+      // inside the visible portion rather than outside it.
+      if (isTall) return "overlay";
+      // Standard fallback
       if (rect.bottom + TOOLTIP_H + 16 < vh) return "bottom";
       if (rect.top    - TOOLTIP_H - 16 > 0)  return "top";
       return "bottom";
     };
 
     const placement = place(pref);
-    arrowPos = placement;
+    arrowPos = placement === "overlay" ? "bottom" : placement;
 
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
+    const cx   = rect.left + rect.width / 2;
+    // For tall elements use the visible vertical centre as the anchor
+    const cy   = isTall
+      ? visibleTop + visibleHeight / 2
+      : rect.top + rect.height / 2;
     const left = Math.max(8, Math.min(cx - TOOLTIP_W / 2, vw - TOOLTIP_W - 8));
 
-    if (placement === "bottom") {
-      tooltipStyle = { position: "fixed", top: rect.bottom + 12, left, width: TOOLTIP_W, zIndex: 10001 };
+    if (placement === "overlay") {
+      // Pin tooltip just below the visible centre, clamped within the viewport
+      const pinnedTop = Math.min(cy + 12, vh - TOOLTIP_H - 16);
+      tooltipStyle = { position: "fixed", top: Math.max(pinnedTop, 60), left, width: TOOLTIP_W, zIndex: 10001 };
+      arrowStyle   = { position: "absolute", top: -7, left: cx - left - 7, width: 14, height: 14 };
+    } else if (placement === "bottom") {
+      // Clamp so tooltip never overflows below the viewport
+      const clampTop = Math.min(rect.bottom + 12, vh - TOOLTIP_H - 8);
+      tooltipStyle = { position: "fixed", top: clampTop, left, width: TOOLTIP_W, zIndex: 10001 };
       arrowStyle   = { position: "absolute", top: -7, left: cx - left - 7, width: 14, height: 14 };
     } else if (placement === "top") {
       tooltipStyle = { position: "fixed", bottom: vh - rect.top + 12, left, width: TOOLTIP_W, zIndex: 10001 };
       arrowStyle   = { position: "absolute", bottom: -7, left: cx - left - 7, width: 14, height: 14 };
     } else if (placement === "right") {
-      tooltipStyle = { position: "fixed", top: cy - 80, left: rect.right + 12, width: TOOLTIP_W, zIndex: 10001 };
+      const clampTop = Math.max(8, Math.min(cy - 80, vh - TOOLTIP_H - 8));
+      tooltipStyle = { position: "fixed", top: clampTop, left: rect.right + 12, width: TOOLTIP_W, zIndex: 10001 };
       arrowStyle   = { position: "absolute", top: 60, left: -7, width: 14, height: 14 };
     } else {
-      tooltipStyle = { position: "fixed", top: cy - 80, left: rect.left - TOOLTIP_W - 12, width: TOOLTIP_W, zIndex: 10001 };
+      const clampTop = Math.max(8, Math.min(cy - 80, vh - TOOLTIP_H - 8));
+      tooltipStyle = { position: "fixed", top: clampTop, left: rect.left - TOOLTIP_W - 12, width: TOOLTIP_W, zIndex: 10001 };
       arrowStyle   = { position: "absolute", top: 60, right: -7, width: 14, height: 14 };
     }
   } else {
