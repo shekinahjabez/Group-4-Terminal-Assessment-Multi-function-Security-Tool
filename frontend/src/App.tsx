@@ -1,19 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PasswordStrength } from "./components/PasswordStrength";
 import { PasswordGenerator } from "./components/PasswordGenerator";
 import { InputValidator } from "./components/InputValidator";
 import { PortScanner } from "./components/PortScanner";
 import { TrafficAnalyzer } from "./components/TrafficAnalyzer";
-import { BreachChecker } from "./components/BreachChecker";          // ← ADD
+import { BreachChecker } from "./components/BreachChecker";
+
+// ── Tour system ────────────────────────────────────────────────────────────
+import { TourGuide } from "./components/TourGuide";
+import { TOUR_STEPS } from "./tourSteps";
+
 import {
   Shield, Zap, ScanEye, Radar, Activity,
   PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight,
   Lock, Network, ArrowRight, KeyRound, FileCheck,
-  CheckCircle2, Info, ShieldAlert,                                   // ← ADD ShieldAlert
+  CheckCircle2, Info, ShieldAlert,
 } from "lucide-react";
 
-// ── 1. Add "breach" to the union ─────────────────────────────────────────────
 type TabId = "home" | "strength" | "generator" | "validator" | "scanner" | "traffic" | "breach";
+
+// Tracks which tabs have already shown the tour this session
+const SEEN_TABS = new Set<TabId>();
+
+const TOOL_LABELS: Record<TabId, string> = {
+  home:      "Home",
+  strength:  "Password Strength",
+  generator: "Password Generator",
+  validator: "Input Validator",
+  breach:    "Breach Checker",
+  scanner:   "Port Scanner",
+  traffic:   "Traffic Analyzer",
+};
 
 const C: Record<string, { dot: string; active: string; icon: string; bar: string }> = {
   blue:    { dot: "bg-blue-500",    active: "text-blue-700 bg-blue-50 border-blue-200",          icon: "text-blue-600",    bar: "bg-blue-500"    },
@@ -22,15 +39,14 @@ const C: Record<string, { dot: string; active: string; icon: string; bar: string
   emerald: { dot: "bg-emerald-500", active: "text-emerald-700 bg-emerald-50 border-emerald-200", icon: "text-emerald-600", bar: "bg-emerald-500" },
   amber:   { dot: "bg-amber-500",   active: "text-amber-700 bg-amber-50 border-amber-200",       icon: "text-amber-600",   bar: "bg-amber-500"   },
   rose:    { dot: "bg-rose-500",    active: "text-rose-700 bg-rose-50 border-rose-200",          icon: "text-rose-600",    bar: "bg-rose-500"    },
-  red:     { dot: "bg-red-500",     active: "text-red-700 bg-red-50 border-red-200",             icon: "text-red-600",     bar: "bg-red-500"     }, // ← ADD
+  red:     { dot: "bg-red-500",     active: "text-red-700 bg-red-50 border-red-200",             icon: "text-red-600",     bar: "bg-red-500"     },
 };
 
-// ── 2. Add breach entry to MS1_TOOLS ─────────────────────────────────────────
 const MS1_TOOLS = [
   { id: "strength"  as TabId, icon: ScanEye,     title: "Analyze",  subtitle: "Password strength", color: "blue"   },
   { id: "generator" as TabId, icon: Zap,         title: "Generate", subtitle: "Secure password",   color: "indigo" },
   { id: "validator" as TabId, icon: Shield,      title: "Validate", subtitle: "Form inputs",       color: "violet" },
-  { id: "breach"    as TabId, icon: ShieldAlert, title: "Breach",   subtitle: "Leak checker",      color: "red"    }, // ← ADD
+  { id: "breach"    as TabId, icon: ShieldAlert, title: "Breach",   subtitle: "Leak checker",      color: "red"    },
 ];
 const MS2_TOOLS = [
   { id: "scanner" as TabId, icon: Radar,    title: "Scanner", subtitle: "Port scanning",    color: "emerald" },
@@ -42,12 +58,29 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [ms1Open,          setMs1Open]          = useState(true);
   const [ms2Open,          setMs2Open]          = useState(true);
+  const [tourOpen,         setTourOpen]         = useState(false);
 
   const isHome      = activeTab === "home";
   const showSidebar = !isHome;
+  const currentTourSteps = TOUR_STEPS[activeTab] ?? [];
+  const hasTour = currentTourSteps.length > 0;
 
-  // ── 3. Add "breach" to the ms1Open guard ─────────────────────────────────
+  // Auto-launch tour the first time each tool tab is opened
+  useEffect(() => {
+    if (activeTab === "home" || !hasTour) return;
+    if (SEEN_TABS.has(activeTab)) return;
+
+    // Small delay so the component has time to mount and render its elements
+    const timer = setTimeout(() => {
+      SEEN_TABS.add(activeTab);
+      setTourOpen(true);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [activeTab, hasTour]);
+
   const navigate = (tab: TabId) => {
+    setTourOpen(false);
     setActiveTab(tab);
     if (["strength", "generator", "validator", "breach"].includes(tab)) setMs1Open(true);
     if (["scanner", "traffic"].includes(tab))                           setMs2Open(true);
@@ -152,8 +185,7 @@ export default function App() {
               { icon: Lock,        label: "Check password strength",            tab: "strength"  as TabId },
               { icon: Zap,         label: "Generate secure passwords",           tab: "generator" as TabId },
               { icon: FileCheck,   label: "Validate and sanitize inputs",        tab: "validator" as TabId },
-              { icon: ShieldAlert, label: "Check for leaked passwords & emails", tab: "breach"    as TabId }, // ← ADD
-              { icon: Shield,      label: "Security testing terminal",           tab: "validator" as TabId },
+              { icon: ShieldAlert, label: "Check for leaked passwords & emails", tab: "breach"    as TabId },
             ].map(item => (
               <button key={item.label} onClick={() => navigate(item.tab)}
                 style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "none", border: "none", cursor: "pointer", padding: "6px 0", color: "#475569", fontSize: 13, textAlign: "left" }}
@@ -244,7 +276,7 @@ export default function App() {
             Group 4 · MO-IT142 Security Script Programming · Terminal Assessment AY 2024-2025
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {["FastAPI", "React + TypeScript", "Python 3", "Scapy", "bcrypt", "Tailwind CSS", "Render", "HIBP API"].map(tag => (
+            {["FastAPI", "React + TypeScript", "Python 3", "Scapy", "bcrypt", "Tailwind CSS", "Render", "HIBP API", "XposedOrNot"].map(tag => (
               <span key={tag} style={{ fontSize: 10, fontFamily: "monospace", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", borderRadius: 999, padding: "2px 8px" }}>
                 {tag}
               </span>
@@ -258,6 +290,14 @@ export default function App() {
   // ── App shell ─────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc", display: "flex", flexDirection: "column" }}>
+
+      {/* Tour overlay — rendered at root so it covers everything */}
+      <TourGuide
+        isOpen={tourOpen && hasTour}
+        steps={currentTourSteps}
+        toolName={TOOL_LABELS[activeTab]}
+        onClose={() => setTourOpen(false)}
+      />
 
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", flexShrink: 0 }}>
@@ -335,7 +375,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Content ── 4. Add breach render ──────────────────────────────── */}
+        {/* Content */}
         <div style={{ flex: 1, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "auto", backgroundColor: isHome ? "#eef2f7" : "#fff" }}>
           {activeTab === "home"      && <HomePage />}
           {activeTab === "strength"  && <div style={{ padding: 20 }}><PasswordStrength /></div>}
@@ -343,7 +383,7 @@ export default function App() {
           {activeTab === "validator" && <div style={{ padding: 20 }}><InputValidator /></div>}
           {activeTab === "scanner"   && <div style={{ padding: 20 }}><PortScanner /></div>}
           {activeTab === "traffic"   && <div style={{ padding: 20 }}><TrafficAnalyzer /></div>}
-          {activeTab === "breach"    && <div style={{ padding: 20 }}><BreachChecker /></div>}  {/* ← ADD */}
+          {activeTab === "breach"    && <div style={{ padding: 20 }}><BreachChecker /></div>}
         </div>
       </div>
 
@@ -360,24 +400,12 @@ export default function App() {
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          position: "fixed",
-          bottom: 20,
-          left: 20,
-          zIndex: 9999,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          backgroundColor: "#4f46e5",
-          color: "#fff",
-          border: "none",
-          borderRadius: 999,
-          padding: "10px 18px",
-          fontSize: 13,
-          fontWeight: 600,
-          textDecoration: "none",
-          boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
-          cursor: "pointer",
-          transition: "background-color 0.2s, box-shadow 0.2s",
+          position: "fixed", bottom: 20, left: 20, zIndex: 9999,
+          display: "flex", alignItems: "center", gap: 8,
+          backgroundColor: "#4f46e5", color: "#fff", border: "none",
+          borderRadius: 999, padding: "10px 18px", fontSize: 13, fontWeight: 600,
+          textDecoration: "none", boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
+          cursor: "pointer", transition: "background-color 0.2s, box-shadow 0.2s",
         }}
         onMouseEnter={e => {
           (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#4338ca";
@@ -388,18 +416,7 @@ export default function App() {
           (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 4px 14px rgba(79,70,229,0.35)";
         }}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ flexShrink: 0 }}
-        >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
           <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
           <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
         </svg>

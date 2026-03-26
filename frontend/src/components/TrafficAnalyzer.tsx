@@ -33,7 +33,6 @@ const PROTO_COLORS: Record<string, { bg: string; text: string; border: string }>
 const protoColor = (p: string) =>
   PROTO_COLORS[(p || "").toUpperCase()] ?? { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
 
-// normalizes a raw sse packet object into a typed Packet for the table
 function parseRawPacket(raw: Record<string, unknown>, id: number): Packet {
   const splitAddr = (addr: string) => {
     if (!addr) return { ip: "—", port: null };
@@ -59,8 +58,6 @@ function parseRawPacket(raw: Record<string, unknown>, id: number): Packet {
   };
 }
 
-// ── PCAP export ───────────────────────────────────────────────────────────────
-// builds a pcap binary from captured packets and triggers a download
 function exportPCAP(packets: Packet[]) {
   const MAGIC      = 0xa1b2c3d4;
   const LINK_TYPE  = 1;
@@ -137,15 +134,12 @@ function exportPCAP(packets: Packet[]) {
   URL.revokeObjectURL(url);
 }
 
-// main traffic analyzer component, manages streaming, filters, and the packet table
 export function TrafficAnalyzer() {
-  // ── Agent hook ────────────────────────────────────────────────────────────
   const agent            = useLocalAgent();
   const isAgentConnected = agent.state === "running-live";
   const STREAM_BASE      = isAgentConnected ? agent.agentUrl : API;
   const streamPath       = isAgentConnected ? "/traffic/stream" : "/api/traffic/stream";
 
-  // ── State ─────────────────────────────────────────────────────────────────
   const [packets,     setPackets]     = useState<Packet[]>([]);
   const [stats,       setStats]       = useState<TrafficStats>({ total:0, tcp:0, udp:0, icmp:0, other:0 });
   const [running,     setRunning]     = useState(false);
@@ -160,7 +154,6 @@ export function TrafficAnalyzer() {
   const packetId = useRef(0);
   const gotAny   = useRef(false);
 
-  // appends new packets to state and updates the protocol stats counters
   const addPackets = useCallback((raws: Record<string, unknown>[]) => {
     if (!raws.length) return;
     gotAny.current = true;
@@ -180,14 +173,12 @@ export function TrafficAnalyzer() {
     });
   }, []);
 
-  // closes the event source and marks the stream as stopped
   const stopStream = useCallback(() => {
     esRef.current?.close();
     esRef.current = null;
     setRunning(false);
   }, []);
 
-  // opens an sse connection to the agent and starts receiving packets
   const startStream = useCallback(() => {
     if (!isAgentConnected) {
       setError("Start the local agent to enable live streaming.");
@@ -223,17 +214,12 @@ export function TrafficAnalyzer() {
     };
   }, [isAgentConnected, STREAM_BASE, streamPath, duration, filterProto, filterIP, filterSrc, filterDst, addPackets, stopStream]);
 
-  // starts a short 5-second capture and shows the packets
   const takeSnapshot = async () => {
-    if (!isAgentConnected) {
-      setError("Start the local agent to use Snapshot.");
-      return;
-    }
+    if (!isAgentConnected) { setError("Start the local agent to use Snapshot."); return; }
     setError(null);
     setPackets([]);
     setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
     packetId.current = 0;
-
     try {
       stopStream();
       setRunning(true);
@@ -258,7 +244,6 @@ export function TrafficAnalyzer() {
     }
   };
 
-  // stops the stream and clears all packets and stats from the screen
   const clearAll = () => {
     stopStream();
     setPackets([]);
@@ -271,8 +256,6 @@ export function TrafficAnalyzer() {
   useEffect(() => () => { esRef.current?.close(); }, []);
 
   useEffect(() => {
-    // packets.length and running intentionally omitted from deps — we only want this to fire when
-    // a filter input changes, not on every packet arrival or when streaming stops.
     if (packets.length > 0 && !running) {
       setPackets([]);
       setStats({ total: 0, tcp: 0, udp: 0, icmp: 0, other: 0 });
@@ -281,7 +264,6 @@ export function TrafficAnalyzer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterProto, filterIP, filterSrc, filterDst]);
 
-  // Shared panel props
   const panelProps = {
     health:    agent.health,
     agentUrl:  agent.agentUrl,
@@ -306,17 +288,14 @@ export function TrafficAnalyzer() {
         </p>
       </div>
 
-      {/* Agent setup panel */}
-      {!isAgentConnected && (
-        <AgentSetupPanel state={agent.state} {...panelProps} />
-      )}
-      {agent.state === "running-no-scapy" && (
-        <AgentSetupPanel state={agent.state} {...panelProps} />
-      )}
+      {!isAgentConnected && <AgentSetupPanel state={agent.state} {...panelProps} />}
+      {agent.state === "running-no-scapy" && <AgentSetupPanel state={agent.state} {...panelProps} />}
 
-      {/* Controls — always visible; Start Live Stream is gated on agent connection */}
+      {/* Controls panel */}
       <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+
+        {/* Filters row — tour target wraps all filter inputs */}
+        <div data-tour="traffic-filter" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
           {[
             { label: "Protocol", el: (
               <select value={filterProto} onChange={e => setFilterProto(e.target.value)}
@@ -337,7 +316,8 @@ export function TrafficAnalyzer() {
           ))}
         </div>
 
-        <div>
+        {/* Duration slider — tour target on the interface/duration section */}
+        <div data-tour="traffic-interface">
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
             <label style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Capture duration</label>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#e11d48" }}>{duration}s</span>
@@ -351,7 +331,8 @@ export function TrafficAnalyzer() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        {/* Start / Stop / Snapshot buttons — tour target wraps all action buttons */}
+        <div data-tour="traffic-start" style={{ display: "flex", gap: 8 }}>
           {!running ? (
             <button onClick={startStream} disabled={!isAgentConnected}
               title={!isAgentConnected ? "Start the local agent to enable live streaming" : undefined}
@@ -380,8 +361,9 @@ export function TrafficAnalyzer() {
         </div>
       )}
 
+      {/* Stats bar — tour target */}
       {stats.total > 0 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <div data-tour="traffic-stats" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { label: "Total", val: stats.total, bg: "#f1f5f9", text: "#334155", border: "#e2e8f0" },
@@ -415,8 +397,9 @@ export function TrafficAnalyzer() {
         </div>
       )}
 
+      {/* Packet table — tour target */}
       {packets.length > 0 ? (
-        <div style={{ overflowX: "auto", borderRadius: 10, border: "2px solid #e2e8f0" }}>
+        <div data-tour="traffic-packets" style={{ overflowX: "auto", borderRadius: 10, border: "2px solid #e2e8f0" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
             <thead>
               <tr style={{ backgroundColor: "#f1f5f9" }}>

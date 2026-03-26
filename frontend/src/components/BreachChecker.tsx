@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { ShieldAlert, ShieldCheck, Eye, EyeOff, AlertCircle, Loader2, Lock, Mail, ExternalLink } from "lucide-react";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
 type CheckTab = "password" | "email";
 
 interface PwnedPasswordResult {
@@ -18,8 +16,6 @@ interface XonCheckEmailResponse {
     year?: [string, number][];
   };
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 async function sha1(str: string): Promise<string> {
   const buf  = new TextEncoder().encode(str);
@@ -39,30 +35,16 @@ function severityFromCount(count: number) {
   return                      { label: "Low",      color: "#166534", bg: "#f0fdf4", border: "#bbf7d0" };
 }
 
-/**
- * The XposedOrNot API sometimes returns breach names as a single
- * concatenated string (e.g. "LinkedInAdobe2016MySpace") inside a
- * one-element array, or separated by semicolons/commas.
- * This helper normalises the raw array into clean individual names.
- */
 function parseBreachNames(raw: string[]): string[] {
-  // Flatten everything into one string first
   const joined = raw.join(";");
-
-  // If there are delimiters, split on them
   if (/[;,]/.test(joined)) {
     return joined.split(/[;,]/).map(s => s.trim()).filter(Boolean);
   }
-
-  // Otherwise split on CamelCase word boundaries
-  // "LinkedInAdobe2016" → ["LinkedIn", "Adobe2016"]
   return joined
-    .split(/(?=[A-Z][a-z])/)   // split before each Capital+lower sequence
+    .split(/(?=[A-Z][a-z])/)
     .map(s => s.trim())
     .filter(Boolean);
 }
-
-// ── Password check ─────────────────────────────────────────────────────────────
 
 async function checkPasswordBreach(password: string): Promise<PwnedPasswordResult> {
   const hash   = await sha1(password);
@@ -79,54 +61,39 @@ async function checkPasswordBreach(password: string): Promise<PwnedPasswordResul
   return { found: count > 0, count, hash };
 }
 
-// ── Email check ────────────────────────────────────────────────────────────────
-
 async function checkEmailBreach(email: string): Promise<{ safe: boolean; breaches: string[]; metrics: XonCheckEmailResponse["BreachMetrics"] }> {
   const res = await fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`);
-
   if (res.status === 404) return { safe: true, breaches: [], metrics: undefined };
   if (!res.ok) throw new Error(`XposedOrNot API error: ${res.status}`);
-
   const data: XonCheckEmailResponse = await res.json();
   const rawBreaches = data.breaches ?? [];
-
-  // ← FIX: normalise the breach names before returning
   const breaches = parseBreachNames(rawBreaches);
-
   return { safe: breaches.length === 0, breaches, metrics: data.BreachMetrics };
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
-
 export function BreachChecker() {
-  const [tab,          setTab]          = useState<CheckTab>("password");
-
-  const [password,     setPassword]     = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [pwLoading,    setPwLoading]    = useState(false);
-  const [pwResult,     setPwResult]     = useState<PwnedPasswordResult | null>(null);
-  const [pwError,      setPwError]      = useState<string | null>(null);
-  const [pwEmpty,      setPwEmpty]      = useState(false);
-
-  const [email,        setEmail]        = useState("");
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailSafe,    setEmailSafe]    = useState(false);
-  const [emailBreaches,setEmailBreaches]= useState<string[]>([]);
-  const [emailMetrics, setEmailMetrics] = useState<XonCheckEmailResponse["BreachMetrics"]>(undefined);
-  const [emailFound,   setEmailFound]   = useState(false);
-  const [emailError,   setEmailError]   = useState<string | null>(null);
-  const [emailEmpty,   setEmailEmpty]   = useState(false);
+  const [tab,           setTab]          = useState<CheckTab>("password");
+  const [password,      setPassword]     = useState("");
+  const [showPassword,  setShowPassword] = useState(false);
+  const [pwLoading,     setPwLoading]    = useState(false);
+  const [pwResult,      setPwResult]     = useState<PwnedPasswordResult | null>(null);
+  const [pwError,       setPwError]      = useState<string | null>(null);
+  const [pwEmpty,       setPwEmpty]      = useState(false);
+  const [email,         setEmail]        = useState("");
+  const [emailLoading,  setEmailLoading] = useState(false);
+  const [emailSafe,     setEmailSafe]    = useState(false);
+  const [emailBreaches, setEmailBreaches]= useState<string[]>([]);
+  const [emailMetrics,  setEmailMetrics] = useState<XonCheckEmailResponse["BreachMetrics"]>(undefined);
+  const [emailFound,    setEmailFound]   = useState(false);
+  const [emailError,    setEmailError]   = useState<string | null>(null);
+  const [emailEmpty,    setEmailEmpty]   = useState(false);
 
   const handlePasswordCheck = async () => {
     if (!password.trim()) { setPwEmpty(true); setPwResult(null); setPwError(null); return; }
     setPwEmpty(false); setPwError(null); setPwResult(null); setPwLoading(true);
-    try {
-      setPwResult(await checkPasswordBreach(password));
-    } catch (err) {
-      setPwError(err instanceof Error ? err.message : "Network error. Please try again.");
-    } finally {
-      setPwLoading(false);
-    }
+    try { setPwResult(await checkPasswordBreach(password)); }
+    catch (err) { setPwError(err instanceof Error ? err.message : "Network error. Please try again."); }
+    finally { setPwLoading(false); }
   };
 
   const handleEmailCheck = async () => {
@@ -135,18 +102,10 @@ export function BreachChecker() {
     setEmailSafe(false); setEmailBreaches([]); setEmailMetrics(undefined); setEmailLoading(true);
     try {
       const { safe, breaches, metrics } = await checkEmailBreach(email.trim());
-      if (safe) {
-        setEmailSafe(true);
-      } else {
-        setEmailFound(true);
-        setEmailBreaches(breaches);
-        setEmailMetrics(metrics);
-      }
-    } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "Network error. Please try again.");
-    } finally {
-      setEmailLoading(false);
-    }
+      if (safe) { setEmailSafe(true); }
+      else { setEmailFound(true); setEmailBreaches(breaches); setEmailMetrics(metrics); }
+    } catch (err) { setEmailError(err instanceof Error ? err.message : "Network error. Please try again."); }
+    finally { setEmailLoading(false); }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -186,8 +145,8 @@ export function BreachChecker() {
         </p>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8 }}>
+      {/* Tabs — tour target */}
+      <div data-tour="breach-tabs" style={{ display: "flex", gap: 8 }}>
         {(["password", "email"] as CheckTab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{
@@ -209,7 +168,9 @@ export function BreachChecker() {
       {/* ── PASSWORD TAB ── */}
       {tab === "password" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
+
+          {/* Input — tour target */}
+          <div data-tour="breach-input">
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Enter Password
             </label>
@@ -232,7 +193,12 @@ export function BreachChecker() {
             </div>
           </div>
 
-          <button onClick={handlePasswordCheck} disabled={pwLoading} style={primaryBtn(pwLoading)}
+          {/* Submit button — tour target */}
+          <button
+            data-tour="breach-submit"
+            onClick={handlePasswordCheck}
+            disabled={pwLoading}
+            style={primaryBtn(pwLoading)}
             onMouseEnter={e => { if (!pwLoading) e.currentTarget.style.backgroundColor = "#4338ca"; }}
             onMouseLeave={e => { if (!pwLoading) e.currentTarget.style.backgroundColor = "#4f46e5"; }}
           >
@@ -254,67 +220,72 @@ export function BreachChecker() {
             </div>
           )}
 
+          {/* Result — tour target on the result card */}
           {pwResult && (() => {
             const sev = pwResult.found ? severityFromCount(pwResult.count) : null;
-            return pwResult.found ? (
-              <div style={{ backgroundColor: sev!.bg, border: `2px solid ${sev!.border}`, borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 44, height: 44, backgroundColor: sev!.bg, border: `2px solid ${sev!.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <ShieldAlert style={{ width: 22, height: 22, color: sev!.color }} />
-                  </div>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: sev!.color }}>Password Compromised</p>
-                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
-                      Found in <strong style={{ color: sev!.color }}>{fmt(pwResult.count)}</strong> breach record{pwResult.count !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <span style={{ marginLeft: "auto", backgroundColor: sev!.bg, border: `1px solid ${sev!.border}`, color: sev!.color, borderRadius: 999, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>
-                    {sev!.label} Risk
-                  </span>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {[{ label: "Exposures", value: fmt(pwResult.count) }, { label: "Risk Level", value: sev!.label }].map(s => (
-                    <div key={s.label} style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
-                      <p style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: sev!.color, margin: "4px 0 0" }}>{s.value}</p>
+            return (
+              <div data-tour="breach-result">
+                {pwResult.found ? (
+                  <div style={{ backgroundColor: sev!.bg, border: `2px solid ${sev!.border}`, borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 44, height: 44, backgroundColor: sev!.bg, border: `2px solid ${sev!.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <ShieldAlert style={{ width: 22, height: 22, color: sev!.color }} />
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: sev!.color }}>Password Compromised</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                          Found in <strong style={{ color: sev!.color }}>{fmt(pwResult.count)}</strong> breach record{pwResult.count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <span style={{ marginLeft: "auto", backgroundColor: sev!.bg, border: `1px solid ${sev!.border}`, color: sev!.color, borderRadius: 999, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>
+                        {sev!.label} Risk
+                      </span>
                     </div>
-                  ))}
-                </div>
 
-                <div style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
-                  <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>Recommendations</p>
-                  <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
-                    {[
-                      "Change this password immediately on all accounts where it is used.",
-                      "Never reuse passwords — use a unique password for every account.",
-                      "Use the Password Generator to create a strong replacement.",
-                      pwResult.count > 100_000 ? "This is an extremely common password known to attackers." : null,
-                    ].filter(Boolean).map((tip, i) => (
-                      <li key={i} style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{tip}</li>
-                    ))}
-                  </ul>
-                </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      {[{ label: "Exposures", value: fmt(pwResult.count) }, { label: "Risk Level", value: sev!.label }].map(s => (
+                        <div key={s.label} style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+                          <p style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>{s.label}</p>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: sev!.color, margin: "4px 0 0" }}>{s.value}</p>
+                        </div>
+                      ))}
+                    </div>
 
-                <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px" }}>
-                  <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>
-                    SHA-1: <span style={{ color: "#64748b" }}>{pwResult.hash.slice(0, 5)}</span>
-                    <span style={{ color: "#cbd5e1" }}>{pwResult.hash.slice(5)}</span>
-                    &nbsp;·&nbsp; Only the first 5 chars were transmitted
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div style={{ backgroundColor: "#f0fdf4", border: "2px solid #bbf7d0", borderRadius: 12, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, backgroundColor: "#dcfce7", border: "2px solid #86efac", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <ShieldCheck style={{ width: 22, height: 22, color: "#16a34a" }} />
-                </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#15803d" }}>Not Found in Breaches</p>
-                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
-                    This password was not found in any known breach database. Make sure it's also long and unique for best protection.
-                  </p>
-                </div>
+                    <div style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
+                      <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>Recommendations</p>
+                      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+                        {[
+                          "Change this password immediately on all accounts where it is used.",
+                          "Never reuse passwords — use a unique password for every account.",
+                          "Use the Password Generator to create a strong replacement.",
+                          pwResult.count > 100_000 ? "This is an extremely common password known to attackers." : null,
+                        ].filter(Boolean).map((tip, i) => (
+                          <li key={i} style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px" }}>
+                      <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>
+                        SHA-1: <span style={{ color: "#64748b" }}>{pwResult.hash.slice(0, 5)}</span>
+                        <span style={{ color: "#cbd5e1" }}>{pwResult.hash.slice(5)}</span>
+                        &nbsp;·&nbsp; Only the first 5 chars were transmitted
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ backgroundColor: "#f0fdf4", border: "2px solid #bbf7d0", borderRadius: 12, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
+                    <div style={{ width: 44, height: 44, backgroundColor: "#dcfce7", border: "2px solid #86efac", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <ShieldCheck style={{ width: 22, height: 22, color: "#16a34a" }} />
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#15803d" }}>Not Found in Breaches</p>
+                      <p style={{ margin: "4px 0 0", fontSize: 12, color: "#166534", lineHeight: 1.5 }}>
+                        This password was not found in any known breach database. Make sure it's also long and unique for best protection.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -329,14 +300,13 @@ export function BreachChecker() {
             <ShieldCheck style={{ width: 14, height: 14, color: "#3b82f6", flexShrink: 0 }} />
             <p style={{ margin: 0, fontSize: 11, color: "#1e40af", fontFamily: "monospace" }}>
               Powered by{" "}
-              <a href="https://xposedornot.com" target="_blank" rel="noopener noreferrer" style={{ color: "#2563eb", fontWeight: 700 }}>
-                XposedOrNot
-              </a>
+              <a href="https://xposedornot.com" target="_blank" rel="noopener noreferrer" style={{ color: "#2563eb", fontWeight: 700 }}>XposedOrNot</a>
               {" "}— free, open-source breach API · no API key required
             </p>
           </div>
 
-          <div>
+          {/* Email input — tour target */}
+          <div data-tour="breach-input">
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Email or Username
             </label>
@@ -352,7 +322,12 @@ export function BreachChecker() {
             />
           </div>
 
-          <button onClick={handleEmailCheck} disabled={emailLoading} style={primaryBtn(emailLoading)}
+          {/* Submit button — tour target */}
+          <button
+            data-tour="breach-submit"
+            onClick={handleEmailCheck}
+            disabled={emailLoading}
+            style={primaryBtn(emailLoading)}
             onMouseEnter={e => { if (!emailLoading) e.currentTarget.style.backgroundColor = "#4338ca"; }}
             onMouseLeave={e => { if (!emailLoading) e.currentTarget.style.backgroundColor = "#4f46e5"; }}
           >
@@ -375,7 +350,7 @@ export function BreachChecker() {
           )}
 
           {emailSafe && (
-            <div style={{ backgroundColor: "#f0fdf4", border: "2px solid #bbf7d0", borderRadius: 12, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
+            <div data-tour="breach-result" style={{ backgroundColor: "#f0fdf4", border: "2px solid #bbf7d0", borderRadius: 12, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 44, height: 44, backgroundColor: "#dcfce7", border: "2px solid #86efac", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <ShieldCheck style={{ width: 22, height: 22, color: "#16a34a" }} />
               </div>
@@ -389,7 +364,7 @@ export function BreachChecker() {
           )}
 
           {emailFound && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div data-tour="breach-result" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
               <div style={{ backgroundColor: "#fef2f2", border: "2px solid #fecaca", borderRadius: 12, padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 44, height: 44, backgroundColor: "#fee2e2", border: "2px solid #fca5a5", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -427,26 +402,14 @@ export function BreachChecker() {
                 </div>
               )}
 
-              {/* ── FIXED: Breach name pills in a scrollable, wrapping container ── */}
               {emailBreaches.length > 0 && (
                 <div style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
                   <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Breached Services ({emailBreaches.length})
                   </p>
-                  {/* Scrollable pill container — max 200px tall so it never blows the layout */}
-                  <div style={{
-                    display: "flex", flexWrap: "wrap", gap: 6,
-                    maxHeight: 200, overflowY: "auto",
-                    paddingRight: 4,
-                  }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 200, overflowY: "auto", paddingRight: 4 }}>
                     {emailBreaches.map((name, i) => (
-                      <span key={`${name}-${i}`} style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        fontSize: 12, fontWeight: 600,
-                        backgroundColor: "#fef2f2", border: "1px solid #fecaca",
-                        color: "#b91c1c", borderRadius: 8, padding: "4px 10px",
-                        whiteSpace: "nowrap",   // keep each pill on one line
-                      }}>
+                      <span key={`${name}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 8, padding: "4px 10px", whiteSpace: "nowrap" }}>
                         ⚠ {name}
                       </span>
                     ))}
@@ -456,9 +419,7 @@ export function BreachChecker() {
 
               {emailMetrics?.year && emailMetrics.year.length > 0 && (
                 <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
-                  <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Breach Timeline
-                  </p>
+                  <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>Breach Timeline</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {[...emailMetrics.year].sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => (
                       <span key={year} style={{ fontSize: 11, fontFamily: "monospace", backgroundColor: "#fff", border: "1px solid #e2e8f0", color: "#475569", borderRadius: 6, padding: "3px 8px" }}>
@@ -483,12 +444,8 @@ export function BreachChecker() {
                 </ul>
               </div>
 
-              <a
-                href={`https://xposedornot.com/xposed/#${encodeURIComponent(email)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", borderRadius: 10, border: "2px solid #e2e8f0", backgroundColor: "#f8fafc", color: "#4f46e5", fontSize: 13, fontWeight: 600, textDecoration: "none" }}
-              >
+              <a href={`https://xposedornot.com/xposed/#${encodeURIComponent(email)}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", borderRadius: 10, border: "2px solid #e2e8f0", backgroundColor: "#f8fafc", color: "#4f46e5", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
                 <ExternalLink style={{ width: 14, height: 14 }} />
                 View full breach details on XposedOrNot.com
               </a>

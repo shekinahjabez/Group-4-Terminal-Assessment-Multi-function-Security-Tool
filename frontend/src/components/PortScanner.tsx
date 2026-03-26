@@ -24,7 +24,6 @@ interface ScanResult {
 
 type ScanMode = "common" | "range" | "custom";
 
-// checks if a host string looks like a private or local ip address
 function isPrivateIP(value: string): boolean {
   const h = value.trim();
   return (
@@ -43,8 +42,6 @@ const RISK_STYLE: Record<string, { bg: string; border: string; badge_bg: string;
 };
 const RISK_ICONS: Record<string, string> = { high: "✕", medium: "⚠", low: "✓", info: "i" };
 
-// ── Export helpers ─────────────────────────────────────────────────────────────
-// downloads the scan results as a csv file
 function exportCSV(result: ScanResult) {
   const rows = [
     ["Port", "State", "Service", "Risk"],
@@ -57,7 +54,6 @@ function exportCSV(result: ScanResult) {
     "",
     ...rows.map(r => r.join(",")),
   ].join("\n");
-
   const blob = new Blob([csv], { type: "text/csv" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -67,7 +63,6 @@ function exportCSV(result: ScanResult) {
   URL.revokeObjectURL(url);
 }
 
-// downloads the scan results as a json file
 function exportJSON(result: ScanResult) {
   const payload = {
     meta: {
@@ -87,7 +82,6 @@ function exportJSON(result: ScanResult) {
   URL.revokeObjectURL(url);
 }
 
-// main port scanner component, handles scan config and results display
 export function PortScanner() {
   const [host,        setHost]        = useState("");
   const [mode,        setMode]        = useState<ScanMode>("common");
@@ -106,7 +100,6 @@ export function PortScanner() {
   const SCAN_PATH = isAgentConnected ? "/scan" : "/api/scan";
   const showPrivateIPWarning = !isAgentConnected && isPrivateIP(host);
 
-  // sends the scan request to the agent and stores the results
   const handleScan = async () => {
     if (!host.trim()) { setError("Please enter a target host or IP."); return; }
     if (!isAgentConnected) { setError("Start the local agent to run a port scan."); return; }
@@ -154,9 +147,12 @@ export function PortScanner() {
       {/* Config card */}
       <div style={{ backgroundColor: "#f8fafc", border: "2px solid #e2e8f0", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
 
-        <div>
+        {/* Host input — tour target */}
+        <div data-tour="scan-host">
           <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Target Host / IP</label>
-          <input type="text" value={host}
+          <input
+            type="text"
+            value={host}
             onChange={e => { setHost(e.target.value); setError(null); }}
             onKeyDown={e => e.key === "Enter" && handleScan()}
             placeholder="e.g. 192.168.1.1 or scanme.nmap.org"
@@ -171,7 +167,8 @@ export function PortScanner() {
           )}
         </div>
 
-        <div>
+        {/* Scan mode + port range — tour target wraps both */}
+        <div data-tour="scan-range">
           <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Scan Mode</label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {(["common", "range", "custom"] as ScanMode[]).map(m => (
@@ -180,29 +177,29 @@ export function PortScanner() {
               >{m}</button>
             ))}
           </div>
+
+          {mode === "range" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+              {[{ label: "Start Port", val: startPort, set: setStartPort }, { label: "End Port", val: endPort, set: setEndPort }].map(({ label, val, set }) => (
+                <div key={label}>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 4 }}>{label}</label>
+                  <input type="number" min={1} max={65535} value={val} onChange={e => set(Number(e.target.value))}
+                    style={{ width: "100%", padding: "8px 10px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mode === "custom" && (
+            <div style={{ marginTop: 10 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Port List <span style={{ fontWeight: 400, color: "#94a3b8" }}>(e.g. 80,443,8000-8080)</span></label>
+              <input type="text" value={customPorts} onChange={e => setCustomPorts(e.target.value)} placeholder="80,443,22,8000-8080"
+                style={{ width: "100%", padding: "8px 10px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+          )}
         </div>
-
-        {mode === "range" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {[{ label: "Start Port", val: startPort, set: setStartPort }, { label: "End Port", val: endPort, set: setEndPort }].map(({ label, val, set }) => (
-              <div key={label}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 4 }}>{label}</label>
-                <input type="number" min={1} max={65535} value={val} onChange={e => set(Number(e.target.value))}
-                  style={{ width: "100%", padding: "8px 10px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {mode === "custom" && (
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Port List <span style={{ fontWeight: 400, color: "#94a3b8" }}>(e.g. 80,443,8000-8080)</span></label>
-            <input type="text" value={customPorts} onChange={e => setCustomPorts(e.target.value)} placeholder="80,443,22,8000-8080"
-              style={{ width: "100%", padding: "8px 10px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", backgroundColor: "#fff", outline: "none", boxSizing: "border-box" }}
-            />
-          </div>
-        )}
 
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -218,7 +215,11 @@ export function PortScanner() {
           </div>
         </div>
 
-        <button onClick={handleScan} disabled={loading || !isAgentConnected}
+        {/* Start scan button — tour target */}
+        <button
+          data-tour="scan-start"
+          onClick={handleScan}
+          disabled={loading || !isAgentConnected}
           title={!isAgentConnected ? "Start the local agent to run a port scan" : undefined}
           style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", cursor: (loading || !isAgentConnected) ? "not-allowed" : "pointer", backgroundColor: (loading || !isAgentConnected) ? "#cbd5e1" : "#7c3aed", color: "#fff", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: !isAgentConnected ? 0.6 : 1 }}
           onMouseEnter={e => { if (!loading && isAgentConnected) e.currentTarget.style.backgroundColor = "#6d28d9"; }}
@@ -239,7 +240,7 @@ export function PortScanner() {
       {result && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* Summary */}
+          {/* Summary stats */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
             {[{ label: "Host", value: result.host }, { label: "Scanned", value: String(result.total_scanned) }, { label: "Open", value: String(result.open_count) }, { label: "Time", value: `${result.scan_time.toFixed(1)}s` }].map(s => (
               <div key={s.label} style={{ backgroundColor: "#fff", border: "2px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
@@ -258,31 +259,25 @@ export function PortScanner() {
                 >{r === "all" ? `All (${result.ports.length})` : r}</button>
               ))}
             </div>
-
-            {/* Export buttons */}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => exportCSV(result)}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "2px solid #e2e8f0", backgroundColor: "#fff", color: "#475569", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = "#7c3aed")}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
-              >
-                <Download style={{ width: 12, height: 12 }} />Export CSV
-              </button>
+              ><Download style={{ width: 12, height: 12 }} />Export CSV</button>
               <button onClick={() => exportJSON(result)}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "2px solid #e2e8f0", backgroundColor: "#fff", color: "#475569", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = "#7c3aed")}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = "#e2e8f0")}
-              >
-                <Download style={{ width: 12, height: 12 }} />Export JSON
-              </button>
+              ><Download style={{ width: 12, height: 12 }} />Export JSON</button>
             </div>
           </div>
 
-          {/* Port list */}
+          {/* Port results list — tour target */}
           {displayed.length === 0 ? (
             <div style={{ textAlign: "center", padding: "24px 0", color: "#94a3b8", fontSize: 13 }}>No ports match this filter.</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+            <div data-tour="scan-results" style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
               {displayed.map(p => {
                 const rs = RISK_STYLE[p.risk] ?? RISK_STYLE.info;
                 return (

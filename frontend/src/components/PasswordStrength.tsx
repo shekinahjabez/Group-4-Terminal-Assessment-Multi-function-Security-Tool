@@ -2,22 +2,22 @@ import { useState } from "react";
 import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 
 interface StrengthResult {
-  score: number; // 0..8 for your bars
-  label: string; // Weak | Moderate | Strong
+  score: number;
+  label: string;
   color: string;
   feedback: string[];
   details: {
-    length: boolean; // >=12 (matches backend scoring rule)
+    length: boolean;
     uppercase: boolean;
     lowercase: boolean;
     numbers: boolean;
     symbols: boolean;
-    commonPassword: boolean; // can't know exactly (COMMON_PASSWORDS list is server-side)
+    commonPassword: boolean;
   };
 }
 
 type ApiAssessResponse = {
-  result: [string, string]; // ("Weak"|"Moderate"|"Strong", message)
+  result: [string, string];
 };
 
 function labelToUI(label: string) {
@@ -29,15 +29,12 @@ function labelToUI(label: string) {
 }
 
 function computeDetailsFromRules(pwd: string) {
-  // Mirrors your backend rules:
   return {
     length: pwd.length >= 12,
     uppercase: /[A-Z]/.test(pwd),
     lowercase: /[a-z]/.test(pwd),
     numbers: /[0-9]/.test(pwd),
     symbols: /[!@#$%^&*()_+=\-[\]{};:'",.<>?/\\|]/.test(pwd),
-    // We can't check server-side COMMON_PASSWORDS/DICTIONARY_WORDS here reliably.
-    // We'll mark it "unknown but assumed ok" unless backend indicates it's common/dictionary.
     commonPassword: true,
   };
 }
@@ -46,22 +43,17 @@ function messageToFeedback(label: string, message: string) {
   const msg = (message || "").trim();
   if (!msg) return [];
 
-  // If backend says it's common/dictionary, show that as feedback
   const lower = msg.toLowerCase();
   if (lower.includes("commonly used")) return [msg];
   if (lower.includes("dictionary word")) return [msg];
 
-  // Backend uses bullet lines like "• Add numbers."
   const lines = msg
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((s) => s.replace(/^•\s*/, "")); // remove leading bullet
+    .map((s) => s.replace(/^•\s*/, ""));
 
-  // Strong case message is single sentence
   if (lines.length === 0) return [msg];
-
-  // If strong, we can still show it
   if (label.toLowerCase() === "strong" && lines.length === 1) return lines;
 
   return lines;
@@ -81,82 +73,74 @@ export function PasswordStrength() {
   };
 
   const handleCheckPassword = async () => {
-  if (password.trim().length === 0) {
-    setShowEmptyError(true);
-    setResult(null);
-    return;
-  }
-
-  setShowEmptyError(false);
-  setLoading(true);
-
-  try {
-    const API = import.meta.env.VITE_API_BASE_URL ?? "";
-
-    const r = await fetch(`${API}/api/assess`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-
-    // ✅ Safety: detect HTML/non-JSON responses
-    const ct = r.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
-      const text = await r.text();
-      throw new Error(`Expected JSON, got ${ct}. Body: ${text.slice(0, 120)}`);
+    if (password.trim().length === 0) {
+      setShowEmptyError(true);
+      setResult(null);
+      return;
     }
 
-    const data: ApiAssessResponse | any = await r.json();
+    setShowEmptyError(false);
+    setLoading(true);
 
-    if (!r.ok) {
-      const msg = data?.detail ? String(data.detail) : "Failed to assess password.";
+    try {
+      const API = import.meta.env.VITE_API_BASE_URL ?? "";
+
+      const r = await fetch(`${API}/api/assess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        const text = await r.text();
+        throw new Error(`Expected JSON, got ${ct}. Body: ${text.slice(0, 120)}`);
+      }
+
+      const data: ApiAssessResponse | any = await r.json();
+
+      if (!r.ok) {
+        const msg = data?.detail ? String(data.detail) : "Failed to assess password.";
+        const details = computeDetailsFromRules(password);
+        setResult({ score: 0, label: "Weak", color: "text-red-600", feedback: [msg], details });
+        return;
+      }
+
+      const tuple = data?.result;
+      const backendLabel = Array.isArray(tuple) ? String(tuple[0]) : "Weak";
+      const backendMessage = Array.isArray(tuple) ? String(tuple[1] ?? "") : "";
+
+      const ui = labelToUI(backendLabel);
+      const details = computeDetailsFromRules(password);
+
+      const msgLower = backendMessage.toLowerCase();
+      if (msgLower.includes("commonly used") || msgLower.includes("dictionary word")) {
+        details.commonPassword = false;
+      }
+
+      const feedback = messageToFeedback(backendLabel, backendMessage);
+
+      setResult({
+        score: ui.score,
+        label: ui.label,
+        color: ui.color,
+        feedback: feedback.length ? feedback : ["Password meets security requirements."],
+        details,
+      });
+    } catch (err) {
+      console.error(err);
       const details = computeDetailsFromRules(password);
       setResult({
         score: 0,
         label: "Weak",
         color: "text-red-600",
-        feedback: [msg],
+        feedback: ["Network error while assessing password."],
         details,
       });
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const tuple = data?.result;
-    const backendLabel = Array.isArray(tuple) ? String(tuple[0]) : "Weak";
-    const backendMessage = Array.isArray(tuple) ? String(tuple[1] ?? "") : "";
-
-    const ui = labelToUI(backendLabel);
-    const details = computeDetailsFromRules(password);
-
-    // If backend explicitly says common/dictionary, reflect that in the checklist
-    const msgLower = backendMessage.toLowerCase();
-    if (msgLower.includes("commonly used") || msgLower.includes("dictionary word")) {
-      details.commonPassword = false;
-    }
-
-    const feedback = messageToFeedback(backendLabel, backendMessage);
-
-    setResult({
-      score: ui.score,
-      label: ui.label,
-      color: ui.color,
-      feedback: feedback.length ? feedback : ["Password meets security requirements."],
-      details,
-    });
-  } catch (err) {
-    console.error(err);
-    const details = computeDetailsFromRules(password);
-    setResult({
-      score: 0,
-      label: "Weak",
-      color: "text-red-600",
-      feedback: ["Network error while assessing password."],
-      details,
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="space-y-4">
@@ -166,8 +150,8 @@ export function PasswordStrength() {
         <p className="text-slate-600 text-sm">Evaluate the security level of your password (Python backend)</p>
       </div>
 
-      {/* Password Input */}
-      <div className="relative">
+      {/* Password Input — data-tour on the wrapper div so the highlight covers label + input */}
+      <div className="relative" data-tour="strength-input">
         <label className="block text-sm font-semibold text-slate-700 mb-2">Enter Password</label>
         <div className="relative">
           <input
@@ -176,13 +160,13 @@ export function PasswordStrength() {
             onChange={handlePasswordChange}
             placeholder="Type your password here..."
             className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all pr-12"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCheckPassword();
-            }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleCheckPassword(); }}
           />
+          {/* Show/hide toggle — data-tour on the button itself */}
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
+            data-tour="strength-toggle"
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors"
             title={showPassword ? "Hide" : "Show"}
           >
@@ -215,10 +199,18 @@ export function PasswordStrength() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Left Column */}
           <div className="space-y-4">
-            <div className="bg-slate-50 rounded-xl p-5 border-2 border-slate-200">
+
+            {/* Strength meter — data-tour on the card */}
+            <div className="bg-slate-50 rounded-xl p-5 border-2 border-slate-200" data-tour="strength-meter">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-slate-700 font-semibold text-sm uppercase tracking-wide">Strength Level</span>
-                <span className={`font-bold text-lg ${result.color}`}>{result.label}</span>
+                {/* Score badge — data-tour on the label span */}
+                <span
+                  data-tour="strength-score"
+                  className={`font-bold text-lg ${result.color}`}
+                >
+                  {result.label}
+                </span>
               </div>
 
               <div className="grid grid-cols-8 gap-1.5 mb-2">
@@ -241,8 +233,12 @@ export function PasswordStrength() {
               <p className="text-center text-slate-500 text-sm font-medium">Security Rating: {result.label}</p>
             </div>
 
+            {/* Feedback / recommendations — data-tour on the feedback box */}
             {result.feedback.length > 0 && (
-              <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+              <div
+                data-tour="strength-feedback"
+                className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4"
+              >
                 <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide">
                   <AlertCircle className="w-4 h-4" />
                   Recommendations
@@ -259,7 +255,7 @@ export function PasswordStrength() {
             )}
           </div>
 
-          {/* Right Column */}
+          {/* Right Column — Security Checks */}
           <div>
             <h3 className="text-slate-800 font-bold text-sm uppercase tracking-wide mb-3">Security Checks</h3>
             <div className="grid grid-cols-1 gap-2.5">
@@ -289,9 +285,8 @@ export function PasswordStrength() {
                 );
               })}
             </div>
-
             <p className="mt-2 text-[11px] text-slate-500">
-              Note: “Not common / dictionary” is determined by the backend’s password lists.
+              Note: "Not common / dictionary" is determined by the backend's password lists.
             </p>
           </div>
         </div>
