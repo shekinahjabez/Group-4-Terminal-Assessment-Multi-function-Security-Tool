@@ -8,7 +8,7 @@ import { BreachChecker } from "./components/BreachChecker";
 
 // ── Tour system ────────────────────────────────────────────────────────────
 import { TourGuide } from "./components/TourGuide";
-import { TOUR_STEPS } from "./tourSteps";
+import { TOUR_STEPS } from "./TourSteps";
 
 import {
   Shield, Zap, ScanEye, Radar, Activity,
