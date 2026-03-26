@@ -166,10 +166,14 @@ export function TourGuide({ steps, isOpen, onClose, toolName }: Props) {
     const left = Math.max(8, Math.min(cx - TOOLTIP_W / 2, vw - TOOLTIP_W - 8));
 
     if (placement === "overlay") {
-      // Pin tooltip just below the visible centre, clamped within the viewport
-      const pinnedTop = Math.min(cy + 12, vh - TOOLTIP_H - 16);
-      tooltipStyle = { position: "fixed", top: Math.max(pinnedTop, 60), left, width: TOOLTIP_W, zIndex: 10001 };
-      arrowStyle   = { position: "absolute", top: -7, left: cx - left - 7, width: 14, height: 14 };
+      // Pin tooltip to the bottom-right of the visible panel area.
+      // Using `right` instead of `left` keeps it away from the left-side
+      // controls, and the vertical offset avoids the action buttons at the
+      // bottom (Enable Local Scanning / Connect).
+      const pinnedTop = Math.max(60, visibleBottom - TOOLTIP_H - 100);
+      const rightOffset = Math.max(8, vw - rect.right + 8);
+      tooltipStyle = { position: "fixed", top: pinnedTop, right: rightOffset, width: TOOLTIP_W, zIndex: 10001 };
+      arrowStyle   = {}; // no arrow — element fills the screen, no edge to point at
     } else if (placement === "bottom") {
       // Clamp so tooltip never overflows below the viewport
       const clampTop = Math.min(rect.bottom + 12, vh - TOOLTIP_H - 8);
