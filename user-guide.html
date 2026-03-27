@@ -1043,13 +1043,29 @@
     </div>
 
     <h3 class="sub-head">Scoring breakdown</h3>
+    <p>The assessor uses a three-phase evaluation strategy:</p>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">1</div>
+        <div class="step-text"><strong>Common password check</strong> — If the password appears in a list of 6 million known-breached passwords, it is <span class="badge badge-red">Weak</span> immediately.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">2</div>
+        <div class="step-text"><strong>Dictionary word check</strong> — If the password contains any English dictionary word, it is <span class="badge badge-red">Weak</span> immediately.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">3</div>
+        <div class="step-text"><strong>Five-point scoring system</strong> — If neither check fails, the password earns points as described below.</div>
+      </li>
+    </ol>
+
     <table>
       <thead><tr><th>Rating</th><th>Score</th><th>What it means</th></tr></thead>
       <tbody>
         <tr>
           <td><span class="badge badge-red">Weak</span></td>
           <td>0 – 2 points</td>
-          <td>Fails most criteria, or is a known common / dictionary password</td>
+          <td>Fails most criteria (or caught in phases 1–2)</td>
         </tr>
         <tr>
           <td><span class="badge badge-yellow">Moderate</span></td>
@@ -1064,7 +1080,15 @@
       </tbody>
     </table>
 
-    <p>One point is awarded for each of: <strong>12+ characters</strong>, <strong>uppercase letters</strong>, <strong>lowercase letters</strong>, <strong>digits</strong>, and <strong>special characters</strong>. Passwords found in a common-password list or containing a dictionary word are immediately rated <span class="badge badge-red">Weak</span>.</p>
+    <h3 class="sub-head">The five scoring criteria</h3>
+    <p>One point is awarded for each of the following:</p>
+    <ul style="margin:10px 0 0 20px;line-height:1.8;">
+      <li><strong>Length:</strong> 12 or more characters</li>
+      <li><strong>Uppercase:</strong> At least one letter A–Z</li>
+      <li><strong>Lowercase:</strong> At least one letter a–z</li>
+      <li><strong>Digits:</strong> At least one number 0–9</li>
+      <li><strong>Special characters:</strong> At least one of <code>! @ # $ % ^ &amp; * ( ) _ + - [ ] { } ; : ' " , . &lt; &gt; ? / \</code></li>
+    </ul>
   </div>
 
 
@@ -1127,8 +1151,8 @@
     <div class="callout callout-success">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       <div>
-        <div class="callout-title">Privacy note</div>
-        <p>The server logs only the hashes — your plaintext password is never stored anywhere.</p>
+        <div class="callout-title">Generation logging — hashes only</div>
+        <p>When you generate a password, the backend logs a timestamped event containing the two hashes (SHA-256 and bcrypt) — <strong>never the plaintext password itself</strong>. This ensures you have a record of generated passwords for auditing, while keeping the actual plaintext completely private. The plaintext is visible only on the screen for immediate copy-paste.</p>
       </div>
     </div>
 
@@ -1319,14 +1343,33 @@
         </ul>
       </div>
       <div class="card">
-        <h4>Risk Levels (open ports)</h4>
+        <h4>Risk Levels (open ports only)</h4>
         <ul>
-          <li><span class="badge badge-red">High</span> — Telnet 23, FTP 21, RDP 3389, SMB 445</li>
-          <li><span class="badge badge-yellow">Medium</span> — SSH 22, DNS 53, SMTP 25</li>
-          <li><span class="badge badge-green">Low</span> — HTTP 80, HTTPS 443</li>
+          <li><span class="badge badge-red">High</span> — Ports with known high-risk services</li>
+          <li><span class="badge badge-yellow">Medium</span> — Ports with moderate risk</li>
+          <li><span class="badge badge-green">Low</span> — Generally safe public services</li>
         </ul>
       </div>
     </div>
+
+    <h3 class="sub-head">Complete risk classification reference</h3>
+    <table style="font-size:12px;">
+      <thead><tr><th>Risk Level</th><th>Ports &amp; Services</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-red">HIGH RISK</span></td>
+          <td>21 (FTP) · 23 (Telnet) · 135 (RPC) · 137–139 (NetBIOS) · 445 (SMB) · 1433 (MSSQL) · 3389 (RDP) · 5900 (VNC)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-yellow">MEDIUM RISK</span></td>
+          <td>22 (SSH) · 25 (SMTP) · 53 (DNS) · 80 (HTTP) · 110 (POP3) · 143 (IMAP) · 389 (LDAP) · 443 (HTTPS) · 3306 (MySQL) · 5432 (PostgreSQL) · 6379 (Redis) · 27017 (MongoDB)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">LOW RISK</span></td>
+          <td>All other open ports — generally safe or unknown services</td>
+        </tr>
+      </tbody>
+    </table>
 
     <div class="callout callout-danger">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -1402,14 +1445,129 @@
       <tbody>
         <tr><td><strong>Source / Destination</strong></td><td>IP address and port for both ends of the connection</td></tr>
         <tr><td><strong>Protocol</strong></td><td>TCP, UDP, or ICMP</td></tr>
-        <tr><td><strong>TCP Flags</strong></td><td>SYN, ACK, FIN, RST — shows the connection state</td></tr>
-        <tr><td><strong>Service</strong></td><td>Human-readable name for well-known ports (HTTP, DNS, etc.)</td></tr>
+        <tr><td><strong>TCP Flags</strong></td><td>Connection control signals (explained below)</td></tr>
+        <tr><td><strong>Service Name</strong></td><td>Human-readable name for well-known ports (HTTP, DNS, SSH, etc.)</td></tr>
         <tr><td><strong>Size</strong></td><td>Packet size in bytes</td></tr>
-        <tr><td><strong>Suspicious</strong></td><td>Flagged if destination port matches known suspicious ports</td></tr>
+        <tr><td><strong>Suspicious</strong></td><td>Flagged if destination or source port matches known suspicious ports</td></tr>
         <tr><td><strong>Source</strong></td><td>Network interface the packet was captured from</td></tr>
         <tr><td><strong>Timestamp</strong></td><td>UTC time the packet was captured</td></tr>
       </tbody>
     </table>
+
+    <h3 class="sub-head">TCP flag interpretation</h3>
+    <p>TCP flags control the state of a connection. Each flag is a single bit; multiple flags can be set in a single packet. The most common combinations are:</p>
+    <table>
+      <thead><tr><th>Flag(s)</th><th>Meaning</th><th>Context</th></tr></thead>
+      <tbody>
+        <tr><td><strong>SYN</strong></td><td>Connection request</td><td>Sent by the client to initiate a connection</td></tr>
+        <tr><td><strong>SYN-ACK</strong></td><td>Connection accepted</td><td>Server replies with both SYN and ACK to confirm the request</td></tr>
+        <tr><td><strong>ACK</strong></td><td>Acknowledgment</td><td>Sent to confirm receipt of data or to maintain the connection</td></tr>
+        <tr><td><strong>PSH-ACK</strong></td><td>Data push + acknowledgment</td><td>Sender is pushing application data and acknowledging received data</td></tr>
+        <tr><td><strong>FIN-ACK</strong></td><td>Connection closing</td><td>One side is closing the connection gracefully</td></tr>
+        <tr><td><strong>FIN</strong></td><td>Finish</td><td>The sender has finished sending data</td></tr>
+        <tr><td><strong>RST</strong></td><td>Reset</td><td>Abrupt connection termination (often indicates an error or refused connection)</td></tr>
+        <tr><td><strong>RST-ACK</strong></td><td>Reset + acknowledgment</td><td>Connection reset with acknowledgment</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="sub-head">ICMP message descriptions</h3>
+    <p>ICMP (Internet Control Message Protocol) does not use ports. Instead, it uses type and code numbers to describe different network conditions. Common ICMP messages you may see:</p>
+    <table>
+      <thead><tr><th>Message</th><th>Type / Code</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Echo Reply (Pong)</td><td>0 / 0</td><td>Response to a ping request</td></tr>
+        <tr><td>Echo Request (Ping)</td><td>8 / 0</td><td>One host asking another "are you alive?"</td></tr>
+        <tr><td>Destination Host Unreachable</td><td>3 / 1</td><td>The target host cannot be reached</td></tr>
+        <tr><td>Destination Network Unreachable</td><td>3 / 0</td><td>The network containing the target is unreachable</td></tr>
+        <tr><td>Port Unreachable</td><td>3 / 3</td><td>The host is reachable but nothing is listening on that port</td></tr>
+        <tr><td>TTL Expired in Transit</td><td>11 / 0</td><td>Packet's time-to-live (TTL) counter reached zero</td></tr>
+        <tr><td>Fragmentation Needed</td><td>3 / 4</td><td>Packet is too large; needs to be split into smaller pieces</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="sub-head">Service detection by port</h3>
+    <p>When the Traffic Analyzer detects a packet on a well-known port, it displays the service name alongside the port number. This helps you quickly identify what kind of traffic is flowing. For example:</p>
+    <ul style="margin:10px 0 0 20px;line-height:1.8;">
+      <li>Port 80 → <strong>HTTP</strong> (web traffic)</li>
+      <li>Port 443 → <strong>HTTPS</strong> (encrypted web traffic)</li>
+      <li>Port 22 → <strong>SSH</strong> (secure shell / remote login)</li>
+      <li>Port 53 → <strong>DNS</strong> (domain name resolution)</li>
+      <li>Port 3306 → <strong>MySQL</strong> (database traffic)</li>
+      <li>Port 6379 → <strong>Redis</strong> (cache/key-value store)</li>
+    </ul>
+    <p>If a packet is on a port not in the well-known list, the port number appears without a service name.</p>
+
+    <h3 class="sub-head">Understanding filters and BPF</h3>
+    <p>The Traffic Analyzer accepts five independent filter fields that work together to narrow down which packets are displayed. Each filter uses <strong>Berkeley Packet Filter (BPF)</strong> syntax internally — a standard language for packet filtering supported by network tools across all platforms.</p>
+    <table style="font-size:12px;">
+      <thead><tr><th>Filter Field</th><th>Description</th><th>Rules</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Protocol</strong></td>
+          <td>Show only TCP, UDP, ICMP, or any protocol</td>
+          <td>Must be one of: <code>TCP</code>, <code>UDP</code>, <code>ICMP</code>, or leave blank for all</td>
+        </tr>
+        <tr>
+          <td><strong>Port</strong></td>
+          <td>Match packets on a specific port (source or destination)</td>
+          <td>Must be a number 1–65535. Cannot be used with ICMP (which has no ports)</td>
+        </tr>
+        <tr>
+          <td><strong>Host IP</strong></td>
+          <td>Match packets where either the source or destination is this IP</td>
+          <td>Must be a valid IPv4 or IPv6 address (e.g., <code>192.168.1.100</code> or <code>2001:db8::1</code>)</td>
+        </tr>
+        <tr>
+          <td><strong>Source IP</strong></td>
+          <td>Match packets where the source IP matches exactly</td>
+          <td>Must be a valid IPv4 or IPv6 address</td>
+        </tr>
+        <tr>
+          <td><strong>Destination IP</strong></td>
+          <td>Match packets where the destination IP matches exactly</td>
+          <td>Must be a valid IPv4 or IPv6 address</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>Filter examples:</strong></p>
+    <ul style="margin:10px 0 0 20px;line-height:1.8;">
+      <li>Protocol: <code>TCP</code>, Port: <code>443</code> → Only HTTPS traffic</li>
+      <li>Protocol: <code>UDP</code>, Port: <code>53</code> → Only DNS queries</li>
+      <li>Host IP: <code>192.168.1.1</code> → All packets involving the gateway</li>
+      <li>Source IP: <code>10.0.0.5</code>, Protocol: <code>ICMP</code> → Ping traffic from one specific host</li>
+      <li><em>All filters blank</em> → Capture everything (default: "ip" BPF filter to avoid ARP noise)</li>
+    </ul>
+    <div class="callout callout-warn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <div class="callout-title">ICMP and ports</div>
+        <p>ICMP is a control protocol that does not use ports. If you select "ICMP" as the protocol and also enter a port number, the analyzer will reject the filter with an error message. Remove the port filter to capture ICMP.</p>
+      </div>
+    </div>
+
+    <h3 class="sub-head">Exporting captured traffic as PCAP</h3>
+    <p>Once you finish a capture session, you can export all captured packets in <strong>PCAP format</strong> (Packet Capture — the standard format used by Wireshark and other network analysis tools).</p>
+    <ol class="steps">
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">1</div>
+        <div class="step-text">After the capture completes or you stop it, look for the <strong>Export PCAP</strong> button in the traffic table section.</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">2</div>
+        <div class="step-text">Click the button. A PCAP file with a timestamped name will be downloaded to your computer (e.g., <code>traffic_2025-03-27-143022.pcap</code>).</div>
+      </li>
+      <li>
+        <div class="step-num" style="background:#fff1f2;border:1px solid #fecdd3;color:#be123c;">3</div>
+        <div class="step-text">Open the <code>.pcap</code> file in Wireshark or another packet analyzer for detailed inspection.</div>
+      </li>
+    </ol>
+    <div class="callout callout-success">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div>
+        <div class="callout-title">PCAP exports are Wireshark-compatible</div>
+        <p>The exported PCAP file uses the standard libpcap format, which Wireshark, tcpdump, and all professional network analysis tools can open. This allows you to perform further analysis on the captured packets — reassemble TCP streams, apply advanced filters, view packet payloads, and more.</p>
+      </div>
+    </div>
 
     <div class="callout callout-info">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
