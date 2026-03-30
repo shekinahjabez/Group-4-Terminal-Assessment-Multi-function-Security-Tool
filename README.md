@@ -1,11 +1,11 @@
-🔐 SecureKit — Multi-Function Security Tool
+# 🔐 SecureKit — Multi-Function Security Tool
 
-Group 4 · MO-IT142 Security Script Programming · Terminal Assessment AY 2024–2025
+> **Group 4 · MO-IT142 Security Script Programming · Terminal Assessment AY 2025–2026**
 
 A web-based security toolkit that combines practical password management, input validation, breach detection, and real network analysis tools — all in one place.
 
-🔗 **Live App:** [securekit-whk3.onrender.com](https://securekit-whk3.onrender.com/)
-📄 **Documentation:** [View Full Documentation](https://docs.google.com/document/d/1xL3Gh5PcDcR--uXU91mk_smd5BoO1T_1MXnuNpH4ybY/edit?usp=sharing)
+🔗 **Live App:** [securekit-whk3.onrender.com](https://securekit-whk3.onrender.com/)<br>
+📄 **Documentation:** [View Full Documentation](https://docs.google.com/document/d/1xL3Gh5PcDcR--uXU91mk_smd5BoO1T_1MXnuNpH4ybY/edit?usp=sharing)<br>
 🎬 **Demo Video:** [Watch on Google Drive](https://drive.google.com/file/d/1yWVxy-tE0VO6NI3PQXbQ8A4XzMnlqW0B/view?usp=sharing)
 
 ---
