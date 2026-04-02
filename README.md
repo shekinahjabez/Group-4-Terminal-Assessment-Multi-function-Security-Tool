@@ -6,7 +6,8 @@ A web-based security toolkit that combines practical password management, input 
 
 🔗 **Live App:** [securekit-whk3.onrender.com](https://securekit-whk3.onrender.com/)<br>
 📄 **Documentation:** [View Full Documentation](https://docs.google.com/document/d/1xL3Gh5PcDcR--uXU91mk_smd5BoO1T_1MXnuNpH4ybY/edit?usp=sharing)<br>
-🎬 **Demo Video:** [Watch on Google Drive](https://drive.google.com/file/d/1yWVxy-tE0VO6NI3PQXbQ8A4XzMnlqW0B/view?usp=sharing)
+🎬 **Demo Video:** [Watch on Google Drive](https://drive.google.com/file/d/1yWVxy-tE0VO6NI3PQXbQ8A4XzMnlqW0B/view?usp=sharing)<br>
+💾 **Source Code:** [View on Google Drive](https://drive.google.com/drive/folders/1PDa-aMce2oslWlqfBKL2ofwpMdtkwGo8?usp=sharing)
 
 ---
 
